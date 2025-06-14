@@ -12,6 +12,7 @@ else
 else if
 while
 for
+goto
 classes
 functions in classes
 properties?
