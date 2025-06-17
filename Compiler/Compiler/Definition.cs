@@ -26,6 +26,8 @@ namespace Compiler
             [Classification.Keyword] =
             [
                 @"^print\b",
+                @"^if\b",
+                @"^else\b",
             ],
             [Classification.Punctuation] =
             [

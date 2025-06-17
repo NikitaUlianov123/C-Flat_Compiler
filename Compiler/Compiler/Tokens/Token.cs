@@ -1,31 +1,47 @@
-﻿using System;
+﻿using Compiler.Tokens;
+
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace Compiler
 {
-    [DebuggerDisplay("{Classification}: {Text}")]
-    public class Token
+    [DebuggerDisplay("{Match}")]
+    public abstract class Token
     {
-        public Definition.Classification Classification { get; set; }
-        public string Regex { get; set; }//In case I need to know what exactly matched
-        public string Text { get; set; }
+        //protected abstract List<string> Regex { get; }
 
-        public Token(Definition.Classification classification, string regex, string text, params string[] captures)
+        public string Match { get; set; }//In case I need to know what exactly matched
+
+
+        public Token(string match)
         {
-            Classification = classification;
-            Regex = regex;
-            if (captures.Length > 0)
+            Match = match;
+        }
+
+        public static Token? MakeToken(string input)
+        {
+            var match = Whitespace.DoesMatch(input);
+            if (match != null)
             {
-                Text = captures[0];
+                return new Whitespace(match);
             }
-            else
+
+            match = Keyword.DoesMatch(input);
+            if (match != null)
             {
-                Text = text;
+                return new Keyword(match);
             }
+
+
+
+
+            return null;
         }
     }
 }
