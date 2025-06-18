@@ -8,8 +8,16 @@ using System.Threading.Tasks;
 
 namespace Compiler.Tokens
 {
-    internal class Keyword : IToken
+    internal class Operator : IToken
     {
+        public enum OperatorType
+        {
+            AssignmentEqual,
+            CloseParen,
+            SemiColon,
+            Comma
+        }
+
         public string Word { get; private set; }
 
         public string Match { get; private set; }
@@ -18,15 +26,13 @@ namespace Compiler.Tokens
 
         public static List<string> Regex =
         [
-            @"^(print)\b",
-            @"^(if)\b",
-            @"^(else)\b",
+            @"^=",
+            @"^=\?",
         ];
 
-        public Keyword(Match match)
+        public Operator(Match match)
         {
             Match = match.Groups[0].Value;
-            Word = match.Groups[1].Value;
         }
 
         public static bool DoesMatch(string input, [NotNullWhen(true)] out IToken? result)

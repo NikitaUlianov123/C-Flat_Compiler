@@ -6,7 +6,6 @@ Implemented Features:
 
 ToDo Features:
 improve tokens
-error token
 
 print
 variables

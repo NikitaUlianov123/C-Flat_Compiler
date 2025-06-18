@@ -8,9 +8,17 @@ using System.Threading.Tasks;
 
 namespace Compiler.Tokens
 {
-    internal class Keyword : IToken
+    internal class Punctuation : IToken
     {
-        public string Word { get; private set; }
+        public enum PunctuationType
+        { 
+            OpenParen,
+            CloseParen,
+            SemiColon,
+            Comma
+        }
+
+        public PunctuationType Type { get; private set; }
 
         public string Match { get; private set; }
 
@@ -18,26 +26,27 @@ namespace Compiler.Tokens
 
         public static List<string> Regex =
         [
-            @"^(print)\b",
-            @"^(if)\b",
-            @"^(else)\b",
+            @"^\(",
+            @"^\)",
+            @"^;",
+            @"^,",
         ];
 
-        public Keyword(Match match)
+        public Punctuation(Match match, PunctuationType type)
         {
             Match = match.Groups[0].Value;
-            Word = match.Groups[1].Value;
+            Type = type;
         }
 
         public static bool DoesMatch(string input, [NotNullWhen(true)] out IToken? result)
         {
-            foreach (var regex in Regex)
+            for (int i = 0; i < Regex.Count; i++)
             {
-                var match = System.Text.RegularExpressions.Regex.Match(input, regex);
+                var match = System.Text.RegularExpressions.Regex.Match(input, Regex[i]);
 
                 if (match.Success)
                 {
-                    result = new Keyword(match);
+                    result = new Punctuation(match, (PunctuationType)i);
                     return true;
                 }
             }
