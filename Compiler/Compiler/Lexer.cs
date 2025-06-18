@@ -4,32 +4,20 @@ namespace Compiler
 {
     public static class Lexer
     {
-        public static List<IToken> Lex(string program)
+        public static bool Lex(string program, out List<IToken> tokens)
         {
-            List<IToken> tokens = [];
+            bool success = true;
+            tokens = [];
 
-            for (int i = 0; i < program.Length; i += tokens[^1].Match.Length)
+            for (int i = 0; i < program.Length; i += tokens[^1].Text.Length)
             {
-                var Token = TokenFactory.TryMakeToken(program);
+                var token = TokenFactory.MakeToken(program);
+                tokens.Add(token);
 
-                if (Token is null)
-                {
-                    if (tokens[^1] is Error prev)
-                    {
-                        i -= prev.Match.Length;//so i increments later to the correct value
-                        prev.Append(program[i].ToString());
-                    }
-                    else
-                    {
-                        tokens.Add(new Error(program[i].ToString()));
-                    }
-                }
-                else
-                { 
-                    tokens.Add(Token);
-                }
+                if(token is Error) success = false;
             }
-            return tokens;
+
+            return success;
         }
     }
 }
