@@ -15,40 +15,42 @@ namespace Compiler.Tokens
 {
     public interface IToken
     {
-        public string Text { get; init; }
+        string Text { get; init; }
+        int Row { get; init; }
+        int Column { get; init; }
     }
 
     public static class TokenFactory
     {
-        private static readonly Dictionary<string, Func<string, IToken>> TokenTypes = new()
+        private static readonly Dictionary<string, Func<string, int, int, IToken>> TokenTypes = new()
         {
             // Whitespace
-            [@"^[\s]+"] = (text) => new WhiteSpace(text),
+            [@"^[\s]+"] = (text, row, column) => new WhiteSpace(text, row, column),
 
             // Keywords
-            [@"^print\b"] = (text) => new PrintKeyword(text),
-            [@"^if\b"] = (text) => new IfKeyword(text),
-            [@"^else\b"] = (text) => new ElseKeyword(text),
+            [@"^print\b"] = (text, row, column) => new PrintKeyword(text, row, column),
+            [@"^if\b"] = (text, row, column) => new IfKeyword(text, row, column),
+            [@"^else\b"] = (text, row, column) => new ElseKeyword(text, row, column),
 
             // Punctuation
-            [@"^\("] = (text) => new OpenParenthesis(text),
-            [@"^\)"] = (text) => new CloseParenthesis(text),
-            [@"^;"] = (text) => new Semicolon(text),
-            [@"^,"] = (text) => new Comma(text),
+            [@"^\("] = (text, row, column) => new OpenParenthesis(text, row, column),
+            [@"^\)"] = (text, row, column) => new CloseParenthesis(text, row, column),
+            [@"^;"] = (text, row, column) => new Semicolon(text, row, column),
+            [@"^,"] = (text, row, column) => new Comma(text, row, column),
 
             // Operators
-            [@"^="] = (text) => new AssignmentOperator(text),
-            [@"^=\?"] = (text) => new EqualityOperator(text),
+            [@"^="] = (text, row, column) => new AssignmentOperator(text, row, column),
+            [@"^=\?"] = (text, row, column) => new EqualityOperator(text, row, column),
 
             // Values
-            [@"^""(?:[^""\\]|\\.)*"""] = (text) => new StringValue(text),
-            [@"^[+-]?\d+(\.\d+)?([eE][+-]?\d+)?"] = (text) => new NumericValue(text),
+            [@"^""(?:[^""\\]|\\.)*"""] = (text, row, column) => new StringValue(text, row, column),
+            [@"^[+-]?\d+(\.\d+)?([eE][+-]?\d+)?"] = (text, row, column) => new NumericValue(text, row, column),
 
             // Identifiers
-            [@"^[A-Za-z_][A-Za-z0-9_]*\b"] = (text) => new Identifier(text),
+            [@"^[A-Za-z_][A-Za-z0-9_]*\b"] = (text, row, column) => new Identifier(text, row, column),
         };
 
-        public static IToken MakeToken(string input)
+        public static IToken MakeToken(string input, int row, int column)
         {
             foreach (var type in TokenTypes)
             {
@@ -56,40 +58,40 @@ namespace Compiler.Tokens
 
                 if (match.Success)
                 {
-                    return type.Value(match.Groups[0].Value);
+                    return type.Value(match.Groups[0].Value, row, column);
                 }
             }
 
-            return new Error(input[0].ToString());
+            return new Error(input[0].ToString(), row, column);
         }
     }
 
-    public record WhiteSpace(string Text) : IToken;
+    public record WhiteSpace(string Text, int Row, int Column) : IToken;
 
     #region Keywords
-    public record PrintKeyword(string Text) : IToken;
-    public record IfKeyword(string Text) : IToken;
-    public record ElseKeyword(string Text) : IToken;
+    public record PrintKeyword(string Text, int Row, int Column) : IToken;
+    public record IfKeyword(string Text, int Row, int Column) : IToken;
+    public record ElseKeyword(string Text, int Row, int Column) : IToken;
     #endregion
 
     #region Punctuation
-    public record OpenParenthesis(string Text) : IToken;
-    public record CloseParenthesis(string Text) : IToken;
-    public record Semicolon(string Text) : IToken;
-    public record Comma(string Text) : IToken;
+    public record OpenParenthesis(string Text, int Row, int Column) : IToken;
+    public record CloseParenthesis(string Text, int Row, int Column) : IToken;
+    public record Semicolon(string Text, int Row, int Column) : IToken;
+    public record Comma(string Text, int Row, int Column) : IToken;
     #endregion
 
     #region Operators
-    public record AssignmentOperator(string Text) : IToken;
-    public record EqualityOperator(string Text) : IToken;
+    public record AssignmentOperator(string Text, int Row, int Column) : IToken;
+    public record EqualityOperator(string Text, int Row, int Column) : IToken;
     #endregion
 
     #region Values
-    public record StringValue(string Text) : IToken;
-    public record NumericValue(string Text) : IToken;
+    public record StringValue(string Text, int Row, int Column) : IToken;
+    public record NumericValue(string Text, int Row, int Column) : IToken;
     #endregion
 
-    public record Identifier(string Text) : IToken;
+    public record Identifier(string Text, int Row, int Column) : IToken;
 
-    public record Error(string Text) : IToken;
+    public record Error(string Text, int Row, int Column) : IToken;
 }

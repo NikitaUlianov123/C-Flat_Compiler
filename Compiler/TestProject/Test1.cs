@@ -13,10 +13,14 @@ namespace TestProject
         [TestMethod]
         public void TestMethod1()
         {
-            var result = Lexer.Lex("print(\"Hello\");");
-            ;
+            bool success = Lexer.Lex("print(\"Hello\");", out var result);
+            Assert.IsTrue(success);
 
-            result = Lexer.Lex("int a = 7;");
+            success = Lexer.Lex("int a = 7;", out result);
+            Assert.IsTrue(success);
+
+            Parser.NukeWhiteSpace(result);
+
             ;
         }
     }
