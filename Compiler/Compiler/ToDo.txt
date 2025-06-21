@@ -1,20 +1,29 @@
 # C-Flat_Compiler
-Compiler for a more featureful C#-like language
+Compiler for a more featureful(than my first attempt) C#-like language
+
 
 Implemented Features:
 
 
-ToDo Features:
-improve tokens
+AST'd Features:
+Note: math expressions are recorded in a reverse Polish notation(ish), do shunting yard for AST.
 
+Parsed Features:
 print
 variables
+
+
+Tokenized Features:
 if
 else
 else if
 while
 for
+
+
+ToDo Features:
 goto
+arrays
 classes
 functions in classes
 properties?

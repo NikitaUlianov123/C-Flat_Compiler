@@ -31,16 +31,36 @@ namespace Compiler.Tokens
             [@"^print\b"] = (text, row, column) => new PrintKeyword(text, row, column),
             [@"^if\b"] = (text, row, column) => new IfKeyword(text, row, column),
             [@"^else\b"] = (text, row, column) => new ElseKeyword(text, row, column),
+            [@"^while\b"] = (text, row, column) => new WhileKeyword(text, row, column),
+            [@"^for\b"] = (text, row, column) => new ForKeyword(text, row, column),
+            [@"^true\b"] = (text, row, column) => new TrueKeyword(text, row, column),
+            [@"^false\b"] = (text, row, column) => new FalseKeyword(text, row, column),
 
             // Punctuation
             [@"^\("] = (text, row, column) => new OpenParenthesis(text, row, column),
             [@"^\)"] = (text, row, column) => new CloseParenthesis(text, row, column),
             [@"^;"] = (text, row, column) => new Semicolon(text, row, column),
             [@"^,"] = (text, row, column) => new Comma(text, row, column),
+            [@"^\{"] = (text, row, column) => new OpenCurlyBracket(text, row, column),
+            [@"^\}"] = (text, row, column) => new CloseCurlyBracket(text, row, column),
 
             // Operators
             [@"^="] = (text, row, column) => new AssignmentOperator(text, row, column),
             [@"^=\?"] = (text, row, column) => new EqualityOperator(text, row, column),
+            [@"^!="] = (text, row, column) => new NotEqualityOperator(text, row, column),
+            // Math Operators
+            [@"^\+"] = (text, row, column) => new PlusOperator(text, row, column),
+            [@"^-"] = (text, row, column) => new MinusOperator(text, row, column),
+            [@"^\*"] = (text, row, column) => new TimesOperator(text, row, column),
+            [@"^/"] = (text, row, column) => new DivideOperator(text, row, column),
+            //Bool operators
+            [@"^&&"] = (text, row, column) => new AndOperator(text, row, column),
+            [@"^\|\|"] = (text, row, column) => new OrOperator(text, row, column),
+            [@"^!"] = (text, row, column) => new NotOperator(text, row, column),
+            [@"^>"] = (text, row, column) => new GreaterThanOperator(text, row, column),
+            [@"^<"] = (text, row, column) => new LessThanOperator(text, row, column),
+            [@"^>="] = (text, row, column) => new GreaterThanOrEqualOperator(text, row, column),
+            [@"^<="] = (text, row, column) => new LessThanOrEqualOperator(text, row, column),
 
             // Values
             [@"^""(?:[^""\\]|\\.)*"""] = (text, row, column) => new StringValue(text, row, column),
@@ -72,6 +92,10 @@ namespace Compiler.Tokens
     public record PrintKeyword(string Text, int Row, int Column) : IToken;
     public record IfKeyword(string Text, int Row, int Column) : IToken;
     public record ElseKeyword(string Text, int Row, int Column) : IToken;
+    public record WhileKeyword(string Text, int Row, int Column) : IToken;
+    public record ForKeyword(string Text, int Row, int Column) : IToken;
+    public record TrueKeyword(string Text, int Row, int Column) : IToken;
+    public record FalseKeyword(string Text, int Row, int Column) : IToken;
     #endregion
 
     #region Punctuation
@@ -79,11 +103,31 @@ namespace Compiler.Tokens
     public record CloseParenthesis(string Text, int Row, int Column) : IToken;
     public record Semicolon(string Text, int Row, int Column) : IToken;
     public record Comma(string Text, int Row, int Column) : IToken;
+    public record OpenCurlyBracket(string Text, int Row, int Column) : IToken;
+    public record CloseCurlyBracket(string Text, int Row, int Column) : IToken;
     #endregion
 
     #region Operators
     public record AssignmentOperator(string Text, int Row, int Column) : IToken;
     public record EqualityOperator(string Text, int Row, int Column) : IToken;
+    public record NotEqualityOperator(string Text, int Row, int Column) : IToken;
+
+    #region Math Operators
+    public record PlusOperator(string Text, int Row, int Column) : IToken;
+    public record MinusOperator(string Text, int Row, int Column) : IToken;
+    public record TimesOperator(string Text, int Row, int Column) : IToken;
+    public record DivideOperator(string Text, int Row, int Column) : IToken;
+
+    #endregion
+    #region Bool Operators
+    public record AndOperator(string Text, int Row, int Column) : IToken;
+    public record OrOperator(string Text, int Row, int Column) : IToken;
+    public record NotOperator(string Text, int Row, int Column) : IToken;
+    public record GreaterThanOperator(string Text, int Row, int Column) : IToken;
+    public record LessThanOperator(string Text, int Row, int Column) : IToken;
+    public record GreaterThanOrEqualOperator(string Text, int Row, int Column) : IToken;
+    public record LessThanOrEqualOperator(string Text, int Row, int Column) : IToken;
+    #endregion
     #endregion
 
     #region Values
