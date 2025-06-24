@@ -16,18 +16,13 @@ namespace TestProject
             bool success = Lexer.Lex("print(\"Hello\");", out var result);
             Assert.IsTrue(success);
 
-            //success = Lexer.Lex("int a = 7;", out result);
-            //Assert.IsTrue(success);
-
-            Parser.NukeWhiteSpace(result);
-
             var messages = Parser.Parse(result, out var tree);
             ;
             Assert.IsTrue(messages.Count == 0, string.Join("\n", messages));
         }
 
         [TestMethod]
-        public void TestMethod1()
+        public void MathTest()
         {
             bool success = Lexer.Lex("int a = 3 + 4;\n" +
                                      "b = 3 + 4 * 5;\n" +
@@ -38,10 +33,21 @@ namespace TestProject
                                      "int g = 5 - 3 - 2;", out var result);
             Assert.IsTrue(success);
 
-            //success = Lexer.Lex("int a = 7;", out result);
-            //Assert.IsTrue(success);
 
-            Parser.NukeWhiteSpace(result);
+            ParseNode? twee;
+
+            var messages = Parser.Parse(result, out twee);
+            ;
+        }
+
+        [TestMethod]
+        public void IfTest()
+        {
+            bool success = Lexer.Lex("if(a > 3 && !(b || c) || d)\n" +
+                                     "{\n" +
+                                     "int e = 42;\n" +
+                                     "}\n", out var result);
+            Assert.IsTrue(success);
 
             ParseNode? twee;
 

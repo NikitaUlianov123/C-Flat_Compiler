@@ -67,6 +67,8 @@ namespace Compiler
 
         public static List<string> Parse(List<IToken> tokens, out ParseNode? root)
         {
+            NukeWhiteSpace(tokens);
+
             List<string> messages = [];
             root = new ParseNode();
 
@@ -89,6 +91,8 @@ namespace Compiler
                     root.Children.Add(newKid);
                 }
             }
+            root = MakeAST(root);
+
             return messages;
             
 
@@ -151,7 +155,13 @@ namespace Compiler
             }
         }
 
-        public static void NukeWhiteSpace(List<IToken> tokens)
+        private static ParseNode MakeAST(ParseNode root)
+        {
+            root.Collapse();
+            return root;
+        }
+
+        private static void NukeWhiteSpace(List<IToken> tokens)
         {
             for (int i = 0; i < tokens.Count; i++)
             {
@@ -169,8 +179,55 @@ namespace Compiler
     public record class ParseNode
     {
         public List<object> Children = [];//i know this is bad, it's (hopefully) temporary
+        public virtual bool IsColapsable
+        {
+            get
+            {
+                int nonCollapsableChildren = 0;
+                for (int i = 0; i < Children.Count; i++)
+                {
+                    if (Children[i] is IToken || (Children[i] is ParseNode child && !child.IsColapsable))
+                    { 
+                        nonCollapsableChildren++;
+                    }
+                }
+
+                return nonCollapsableChildren <= 1;
+            }
+        }
+        public ParseNode Collapse()
+        {
+            for (int i = 0; i < Children.Count; i++)
+            {
+                if (Children[i] is ParseNode child)
+                { 
+                    Children[i] = child.Collapse();
+                }
+            }
+            if (IsColapsable)
+            {
+                if (Children.Count == 0) return null;
+
+                var child = Children.Where(x => x is IToken || (x is ParseNode child && !child.IsColapsable)).First();
+                if (child is IToken token)
+                {
+                    return new ASTNode(token);
+                }
+                else if (child is ParseNode parseNode)
+                {
+                    return parseNode;
+                }
+            }
+
+            return this;
+        }
     }
 
+    [DebuggerDisplay("Token: {Token}")]
+    public record class ASTNode(IToken Token) : ParseNode
+    {
+        public override bool IsColapsable => false;
+    }
 
     public record class Program() : ParseNode;
     public record class PrintStatement : ParseNode;
