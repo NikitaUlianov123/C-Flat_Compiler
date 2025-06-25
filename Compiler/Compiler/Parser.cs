@@ -5,6 +5,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Schema;
 
 using Compiler.Tokens;
 
@@ -16,11 +17,14 @@ namespace Compiler
         {
             [typeof(Program)] = [[typeof(PrintStatement)],
                                  [typeof(VariableExpr)]],
-            [typeof(PrintStatement)] = [[typeof(PrintKeyword), typeof(OpenParenthesis), typeof(StringValue), typeof(CloseParenthesis), typeof(Semicolon)]],//print("hello")
+            [typeof(PrintStatement)] = [[typeof(PrintKeyword), typeof(OpenParenthesis), typeof(StringValue), typeof(CloseParenthesis), typeof(Semicolon)],//print("hello")
+                                        [typeof(PrintKeyword), typeof(OpenParenthesis), typeof(Identifier), typeof(CloseParenthesis), typeof(Semicolon)]],//print(a);
 
-            [typeof(VariableExpr)] = [[typeof(Identifier), typeof(Identifier), typeof(Semicolon)],//int a;
-                                      [typeof(Identifier), typeof(Identifier), typeof(AssignmentOperator), typeof(VariableValue), typeof(Semicolon)],//int a = 5;
-                                      [typeof(Identifier), typeof(AssignmentOperator), typeof(VariableValue), typeof(Semicolon)]],//a = 2;
+            [typeof(VariableExpr)] = [[typeof(VariableDeclaration)],
+                                      [typeof(VariableAssignment)]],
+            [typeof(VariableDeclaration)] = [[typeof(Identifier), typeof(Identifier), typeof(Semicolon)],//int a;
+                                             [typeof(Identifier), typeof(Identifier), typeof(AssignmentOperator), typeof(VariableValue), typeof(Semicolon)]],//int a = 5;
+            [typeof(VariableAssignment)] = [[typeof(Identifier), typeof(AssignmentOperator), typeof(VariableValue), typeof(Semicolon)]],
             [typeof(VariableValue)] = [[typeof(MathExpr)],
                                        [typeof(StringValue)]],
 
@@ -87,14 +91,15 @@ namespace Compiler
                     tokens.RemoveAt(0);
                 }
                 else
-                { 
+                {
                     root.Children.Add(newKid);
                 }
             }
             root = MakeAST(root);
+            root = root.Hoist();
 
             return messages;
-            
+
 
             ParseNode? parse(Type nonTerminal, List<IToken> tokens)
             {
@@ -133,7 +138,7 @@ namespace Compiler
                             {
                                 var newKid = parse(production[i], tempList);
                                 if (newKid == null)
-                                { 
+                                {
                                     success = false;
                                     break;
                                 }
@@ -144,7 +149,7 @@ namespace Compiler
                         if (success)
                         {
                             while (tokens.Count > tempList.Count)
-                            { 
+                            {
                                 tokens.RemoveAt(0);
                             }
                             return result;
@@ -187,7 +192,7 @@ namespace Compiler
                 for (int i = 0; i < Children.Count; i++)
                 {
                     if (Children[i] is IToken || (Children[i] is ParseNode child && !child.IsColapsable))
-                    { 
+                    {
                         nonCollapsableChildren++;
                     }
                 }
@@ -200,8 +205,14 @@ namespace Compiler
             for (int i = 0; i < Children.Count; i++)
             {
                 if (Children[i] is ParseNode child)
-                { 
-                    Children[i] = child.Collapse();
+                {
+                    var newChild = child.Collapse();
+                    if (newChild is null)
+                    {
+                        Children.RemoveAt(i--);
+                        continue;
+                    }
+                    Children[i] = newChild;
                 }
             }
             if (IsColapsable)
@@ -221,6 +232,25 @@ namespace Compiler
 
             return this;
         }
+
+        public virtual ParseNode Hoist()
+        {
+            for (int i = 0; i < Children.Count; i++)
+            {
+                if (Children[i] is ParseNode child)
+                {
+                    var newChild = child.Hoist();
+                    if (newChild is null)
+                    {
+                        Children.RemoveAt(i--);
+                        continue;
+                    }
+                    Children[i] = newChild;
+                }
+            }
+
+            return this;
+        }
     }
 
     [DebuggerDisplay("Token: {Token}")]
@@ -230,12 +260,102 @@ namespace Compiler
     }
 
     public record class Program() : ParseNode;
-    public record class PrintStatement : ParseNode;
-    public record class VariableExpr : ParseNode;
+    public record class PrintStatement : ParseNode
+    {
+        public override ParseNode Hoist()
+        {
+            base.Hoist();
+
+            var result = new ASTNode((Children[0] as IToken)!);//the print keyword
+
+            result.Children.Add(Children[2]);//the stuff between the parens
+            return result;
+        }
+    }
+    public record class VariableExpr : ParseNode
+    {
+        public override ParseNode Hoist()
+        {
+            base.Hoist();
+
+            return (Children[0] as ParseNode)!;
+        }
+    }
+    public record class VariableAssignment : ParseNode
+    {
+        public string Name { get; private set; }
+        public override ParseNode Hoist()
+        {
+            base.Hoist();
+
+            Name = (Children[0] as IToken)!.Text;
+            Children.RemoveAt(0);//remove the name token
+
+            Children.RemoveAt(0);//remove the assignment operator
+
+            Children.RemoveAt(Children.Count - 1);//remove the semicolon
+
+            return this;
+        }
+    }
+    public record class VariableDeclaration : ParseNode
+    {
+        public string Type { get; private set; }
+        public string Name { get; private set; }
+        public override ParseNode Hoist()
+        {
+            base.Hoist();
+
+            Type = (Children[0] as IToken)!.Text;
+            Children.RemoveAt(0);//remove the type token
+
+            Name = (Children[0] as IToken)!.Text;
+            Children.RemoveAt(0);//remove the name token
+
+            if (Children.Count > 1)//if there is an assignment(more than just ;)
+            {
+                Children.RemoveAt(0);//remove the assignment operator
+            }
+
+            Children.RemoveAt(Children.Count - 1);//remove the semicolon
+
+            return this;
+        }
+    }
     public record class VariableValue : ParseNode;
     #region Maph
-    public record class MathExpr : ParseNode;
-    public record class MathExprTail : ParseNode;
+    public record class MathExpr : ParseNode
+    {
+        public override ParseNode Hoist()
+        {
+            base.Hoist();
+
+            if (Children.Count == 1 && Children[0] is MathTerm term)
+            {
+                return term;
+            }
+            return this;
+        }
+    }
+    public record class MathExprTail : ParseNode
+    {
+        public override ParseNode Hoist()
+        {
+            base.Hoist();
+
+            if (Children.Count == 0) return null;
+
+            var result = new ASTNode((Children[0] as IToken)!);//the operator
+
+            result.Children.Add(Children[1]);
+
+            if (Children.Count > 2)
+            {
+                result.Children.Add(Children[2]);
+            }
+            return result;
+        }
+    }
     public record class MathTerm : ParseNode;
     public record class MathTermTail : ParseNode;
     public record class MathFactor : ParseNode;
