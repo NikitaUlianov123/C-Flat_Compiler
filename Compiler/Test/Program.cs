@@ -16,14 +16,15 @@ namespace Test
             //#############################
 
 
-            success = Lexer.Lex("if(a > 3)\n" + // && !(b || c) || d)\n" +
+            success = Lexer.Lex("if(a > 3 && !(b || c) || !d)\n" +
                                 "{\n" +
                                 "int e = 42;\n" +
+                                "int b;\n" +
                                 "}\n", out result);
 
             messages = Parser.Parse(result, out twee);
 
-            LogTree(twee, 0);
+            LogTree(twee!, 0);
         }
 
         private static void LogTree(ParseNode node, int depth)

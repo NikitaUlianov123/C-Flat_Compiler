@@ -15,10 +15,13 @@ namespace Compiler
     {
         private static readonly Dictionary<Type, List<List<Type>>> ParseNodes = new()
         {
-            [typeof(Program)] = [[typeof(PrintStatement)],
-                                 [typeof(IfStatement)],
-                                 [typeof(VariableExpr)],
-                                 ],
+            [typeof(Program)] = [[typeof(PossibleStatements), typeof(Program)],
+                                 []],
+            [typeof(PossibleStatements)] = [[typeof(PrintStatement)],
+                                            [typeof(IfStatement)],
+                                            [typeof(VariableExpr)],
+                                            ],
+
             [typeof(PrintStatement)] = [[typeof(PrintKeyword), typeof(OpenParenthesis), typeof(StringValue), typeof(CloseParenthesis), typeof(Semicolon)],//print("hello")
                                         [typeof(PrintKeyword), typeof(OpenParenthesis), typeof(Identifier), typeof(CloseParenthesis), typeof(Semicolon)]],//print(a);
 
@@ -49,10 +52,10 @@ namespace Compiler
             [typeof(IfStatement)] = [[typeof(IfKeyword), typeof(OpenParenthesis), typeof(BoolExpr), typeof(CloseParenthesis), typeof(OpenCurlyBracket), typeof(Program), typeof(CloseCurlyBracket)]],
             #region bool
             [typeof(BoolExpr)] = [[typeof(BoolAndExpr), typeof(BoolOrExprTail)]],
-            [typeof(BoolOrExprTail)] = [[typeof(OrOperator), typeof(BoolAndExpr), typeof(BoolAndExprTail)],
+            [typeof(BoolOrExprTail)] = [[typeof(OrOperator), typeof(BoolAndExpr), typeof(BoolOrExprTail)],
                                         []],
             [typeof(BoolAndExpr)] = [[typeof(BoolFactor), typeof(BoolAndExprTail)]],
-            [typeof(BoolAndExprTail)] = [[typeof(AndOperator), typeof(BoolFactor), typeof(BoolAndExpr)],
+            [typeof(BoolAndExprTail)] = [[typeof(AndOperator), typeof(BoolFactor), typeof(BoolAndExprTail)],
                                          []],
             [typeof(BoolFactor)] = [[typeof(NotOperator), typeof(BoolFactor)],
                                     [typeof(OpenParenthesis), typeof(BoolExpr), typeof(CloseParenthesis)],
@@ -202,7 +205,7 @@ namespace Compiler
                 return nonCollapsableChildren <= 1;
             }
         }
-        public ParseNode Collapse()
+        public ParseNode? Collapse()
         {
             for (int i = 0; i < Children.Count; i++)
             {
@@ -266,6 +269,7 @@ namespace Compiler
     }
 
     public record class Program() : ParseNode;
+    public record class PossibleStatements : ParseNode;
     public record class PrintStatement : ParseNode
     {
         public override ParseNode Hoist()
@@ -289,7 +293,7 @@ namespace Compiler
     }
     public record class VariableAssignment : ParseNode
     {
-        public string Name { get; private set; }
+        public string Name { get; private set; } = "";
         public override ParseNode Hoist()
         {
             base.Hoist();
@@ -306,8 +310,8 @@ namespace Compiler
     }
     public record class VariableDeclaration : ParseNode
     {
-        public string Type { get; private set; }
-        public string Name { get; private set; }
+        public string Type { get; private set; } = "";
+        public string Name { get; private set; } = "";
         public override ParseNode Hoist()
         {
             base.Hoist();
@@ -357,8 +361,6 @@ namespace Compiler
         {
             base.Hoist();
 
-            if (Children.Count == 0) return null;
-
             var result = new ASTNode((Children[0] as IToken)!);//the operator
 
             result.Children.Add(Children[1]);
@@ -397,8 +399,6 @@ namespace Compiler
         {
             base.Hoist();
 
-            if (Children.Count == 0) return null;
-
             var result = new ASTNode((Children[0] as IToken)!);//the operator
 
             result.Children.Add(Children[1]);
@@ -426,15 +426,112 @@ namespace Compiler
     }
     #endregion
 
-    public record class IfStatement : ParseNode;
+    public record class IfStatement : ParseNode
+    {
+        public override ParseNode Hoist()
+        {
+            base.Hoist();
+
+            Children.RemoveAt(0); //remove the if keyword
+            Children.RemoveAt(0); //remove the open parenthesis
+            Children.RemoveAt(1); //remove the close parenthesis
+            Children.RemoveAt(1); //remove the open curly bracket
+            Children.RemoveAt(2); //remove the close curly bracket
+
+            return this;
+        }
+    }
     #region bool
     public record class BoolExpr : ParseNode;
-    public record class BoolOrExprTail : ParseNode;
+    public record class BoolOrExprTail : ParseNode
+    {
+        public override ParseNode Hoist()
+        {
+            base.Hoist();
+
+            ParseNode result;//the operator
+            if (Children[0] is IToken)
+            {
+                result = new ASTNode((Children[0] as IToken)!);
+            }
+            else
+            {
+                result = (Children[0] as ParseNode)!;
+            }
+
+
+            result.Children.AddRange(Children[1..]);
+
+            return result;
+        }
+    }
     public record class BoolAndExpr : ParseNode;
-    public record class BoolAndExprTail : ParseNode;
+    public record class BoolAndExprTail : ParseNode
+    {
+        public override ParseNode Hoist()
+        {
+            base.Hoist();
+
+            ParseNode result;//the operator
+            if (Children[0] is IToken)
+            {
+                result = new ASTNode((Children[0] as IToken)!);
+            }
+            else
+            {
+                result = (Children[0] as ParseNode)!;
+            }
+
+
+            result.Children.AddRange(Children[1..]);
+
+            return result;
+        }
+    }
     public record class BoolRelativeOp : ParseNode;
-    public record class BoolFactor : ParseNode;
+    public record class BoolFactor : ParseNode
+    {
+        public override ParseNode Hoist()
+        {
+            base.Hoist();
+
+            if (Children[0] is NotOperator || (Children[0] is ASTNode node && node.Token is NotOperator))
+            { 
+                var result = Children[0] as ParseNode ?? new ASTNode((Children[0] as NotOperator)!);
+
+                result.Children.Add(Children[1]);//the stuff being notted
+                return result;
+            }
+
+            if (Children[0] is OpenParenthesis || (Children[0] is ASTNode parenNode && parenNode.Token is OpenParenthesis))
+            {
+                return Children[1] as ParseNode ?? new ASTNode((Children[1] as OpenParenthesis)!);
+            }
+
+            return this;
+        }
+    }
     public record class BoolLiteral : ParseNode;
-    public record class Comparison : ParseNode;
+    public record class Comparison : ParseNode
+    {
+        public override ParseNode Hoist()
+        {
+            base.Hoist();
+
+            ParseNode result;//the operator
+            if (Children[1] is IToken)
+            {
+                result = new ASTNode((Children[1] as IToken)!);
+            }
+            else
+            { 
+                result = (Children[1] as ParseNode)!;
+            }
+            result.Children.Add(Children[0]);//the left side
+            result.Children.Add(Children[2]);//the right side
+
+            return result;
+        }
+    }
     #endregion
 }

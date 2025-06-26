@@ -11,10 +11,10 @@ Semantic Analyzed Features:
 AST'd Features:
 print
 variables
+if
 
 
 CST'd Features:
-if
 
 
 Tokenized Features:
