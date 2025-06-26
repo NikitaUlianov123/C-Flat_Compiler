@@ -43,7 +43,7 @@ namespace Test
 
         private static void LogTree(ParseNode node, int depth)
         {
-            Console.WriteLine(new string(' ', depth * 2) + node.GetType().Name);
+            Console.WriteLine(new string(' ', depth * 2) + (node is ASTNode ? node : node.GetType().Name));
             foreach (var child in node.Children)
             {
                 if (child is ParseNode childNode)
@@ -52,7 +52,7 @@ namespace Test
                 }
                 else if (child is not null )
                 {
-                    Console.WriteLine(new string(' ', (depth + 1) * 2) + child.GetType().Name);
+                    Console.WriteLine(new string(' ', (depth + 1) * 2) + (child is ASTNode bob ? bob : child.GetType().Name));
                 }
             }
         }

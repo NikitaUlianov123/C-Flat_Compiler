@@ -113,9 +113,14 @@ namespace Compiler.Tokens
     public record NotEqualityOperator(string Text, int Row, int Column) : IToken;
 
     #region Math Operators
+    public class MathOperatorAttribute : Attribute;
+    [MathOperator]
     public record PlusOperator(string Text, int Row, int Column) : IToken;
+    [MathOperator]
     public record MinusOperator(string Text, int Row, int Column) : IToken;
+    [MathOperator]
     public record TimesOperator(string Text, int Row, int Column) : IToken;
+    [MathOperator]
     public record DivideOperator(string Text, int Row, int Column) : IToken;
 
     #endregion
@@ -132,6 +137,7 @@ namespace Compiler.Tokens
 
     #region Values
     public record StringValue(string Text, int Row, int Column) : IToken;
+    [DebuggerDisplay("Numeric value: {Text}")]
     public record NumericValue(string Text, int Row, int Column) : IToken;
     #endregion
 

@@ -5,16 +5,19 @@ Compiler for a more featureful(than my first attempt) C#-like language
 Implemented Features:
 
 
-AST'd Features:
-Note: math expressions are recorded in a reverse Polish notation(ish), do shunting yard for AST.
+Semantic Analyzed Features:
 
-Parsed Features:
+
+AST'd Features:
 print
 variables
 
 
-Tokenized Features:
+CST'd Features:
 if
+
+
+Tokenized Features:
 else
 else if
 while

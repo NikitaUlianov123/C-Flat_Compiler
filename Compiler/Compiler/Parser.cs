@@ -257,6 +257,10 @@ namespace Compiler
     public record class ASTNode(IToken Token) : ParseNode
     {
         public override bool IsColapsable => false;
+        public override string ToString()
+        {
+            return Token.Text;
+        }
     }
 
     public record class Program() : ParseNode;
@@ -330,11 +334,19 @@ namespace Compiler
         {
             base.Hoist();
 
-            if (Children.Count == 1 && Children[0] is MathTerm term)
+            ParseNode result;
+            if (Children[1] is IToken token)
             {
-                return term;
+                result = new ASTNode(token);
             }
-            return this;
+            else
+            {
+                result = (Children[1] as ParseNode)!;
+            }
+            
+            result.Children.Insert(0, Children[0]);
+            
+            return result;
         }
     }
     public record class MathExprTail : ParseNode
@@ -356,9 +368,60 @@ namespace Compiler
             return result;
         }
     }
-    public record class MathTerm : ParseNode;
-    public record class MathTermTail : ParseNode;
-    public record class MathFactor : ParseNode;
+    public record class MathTerm : ParseNode
+    {
+        public override ParseNode Hoist()
+        {
+            base.Hoist();
+
+            ParseNode result;
+            if (Children[1] is IToken token)
+            {
+                result = new ASTNode(token);
+            }
+            else
+            {
+                result = (Children[1] as ParseNode)!;
+            }
+
+            result.Children.Insert(0, Children[0]);
+
+            return result;
+        }
+    }
+    public record class MathTermTail : ParseNode
+    {
+        public override ParseNode Hoist()
+        {
+            base.Hoist();
+
+            if (Children.Count == 0) return null;
+
+            var result = new ASTNode((Children[0] as IToken)!);//the operator
+
+            result.Children.Add(Children[1]);
+
+            if (Children.Count > 2)
+            {
+                result.Children.Add(Children[2]);
+            }
+            return result;
+        }
+    }
+    public record class MathFactor : ParseNode
+    {
+        public override ParseNode Hoist()
+        {
+            base.Hoist();
+
+            if (Children.Count == 3)
+            {
+                return (Children[1] as ParseNode)!;
+            }
+
+            return this;
+        }
+    }
     #endregion
 
     public record class IfStatement : ParseNode;
