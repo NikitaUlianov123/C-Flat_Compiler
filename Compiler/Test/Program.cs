@@ -1,4 +1,5 @@
 ﻿using Compiler;
+using Compiler.Tokens;
 
 namespace Test
 {
@@ -6,35 +7,19 @@ namespace Test
     {
         static void Main(string[] args)
         {
-            bool success = Lexer.Lex("print(\"hello\");\n" +
-                                     "print(bob);", out var result);
-
+            bool success;
+            List<IToken> result;
 
             ParseNode? twee;
 
-            var messages = Parser.Parse(result, out twee);
+            List<string> messages;
+            //#############################
 
-            LogTree(twee, 0);
 
-
-            ;
-
-            success = Lexer.Lex("int a = 3;\n" +
-                                "b = 4;\n", out result);
-
-            messages = Parser.Parse(result, out twee);
-
-            LogTree(twee, 0);
-
-            ;
-
-            success = Lexer.Lex("int a = 3 + 4;\n" +
-                                "b = 3 + 4 * 5;\n" +
-                                "int c = (1 + 2) * 3;\n" +
-                                "int d = 4 * (7 - 2);\n" +
+            success = Lexer.Lex("if(a > 3)\n" + // && !(b || c) || d)\n" +
+                                "{\n" +
                                 "int e = 42;\n" +
-                                "int f = 3 + 2 * (4 - 1) / 5;\n" +
-                                "int g = 5 - 3 - 2;", out result);
+                                "}\n", out result);
 
             messages = Parser.Parse(result, out twee);
 

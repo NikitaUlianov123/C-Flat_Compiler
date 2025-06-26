@@ -16,7 +16,9 @@ namespace Compiler
         private static readonly Dictionary<Type, List<List<Type>>> ParseNodes = new()
         {
             [typeof(Program)] = [[typeof(PrintStatement)],
-                                 [typeof(VariableExpr)]],
+                                 [typeof(IfStatement)],
+                                 [typeof(VariableExpr)],
+                                 ],
             [typeof(PrintStatement)] = [[typeof(PrintKeyword), typeof(OpenParenthesis), typeof(StringValue), typeof(CloseParenthesis), typeof(Semicolon)],//print("hello")
                                         [typeof(PrintKeyword), typeof(OpenParenthesis), typeof(Identifier), typeof(CloseParenthesis), typeof(Semicolon)]],//print(a);
 
@@ -49,7 +51,7 @@ namespace Compiler
             [typeof(BoolExpr)] = [[typeof(BoolAndExpr), typeof(BoolOrExprTail)]],
             [typeof(BoolOrExprTail)] = [[typeof(OrOperator), typeof(BoolAndExpr), typeof(BoolAndExprTail)],
                                         []],
-            [typeof(BoolAndExpr)] = [[typeof(BoolFactor), typeof(BoolAndExpr)]],
+            [typeof(BoolAndExpr)] = [[typeof(BoolFactor), typeof(BoolAndExprTail)]],
             [typeof(BoolAndExprTail)] = [[typeof(AndOperator), typeof(BoolFactor), typeof(BoolAndExpr)],
                                          []],
             [typeof(BoolFactor)] = [[typeof(NotOperator), typeof(BoolFactor)],
