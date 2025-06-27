@@ -1,4 +1,5 @@
 ﻿using Compiler;
+using Compiler.Tokens;
 
 using System.Runtime.CompilerServices;
 
@@ -53,6 +54,36 @@ namespace TestProject
 
             var messages = Parser.Parse(result, out twee);
             ;
+        }
+
+        [TestMethod]
+        public void ScopeTest()
+        {
+            bool success;
+            List<IToken> result;
+
+            ParseNode? twee;
+
+            List<string> messages;
+            SemanticAnalyzer analyzer;
+            //#############################
+
+
+            success = Lexer.Lex("int a = 2;\n" +
+                                "if(a > 3 && !(b || c) || !d)\n" +
+                                "{\n" +
+                                "int e = 42;\n" +
+                                "int b;\n" +
+                                "a = 14;\n" +
+                                "}\n" +
+                                "e = 3;", out result);
+
+            messages = Parser.Parse(result, out twee);
+
+            ;
+
+            analyzer = new SemanticAnalyzer();
+            analyzer.Analyze(twee!);
         }
     }
 }

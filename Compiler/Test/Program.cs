@@ -13,18 +13,26 @@ namespace Test
             ParseNode? twee;
 
             List<string> messages;
+            SemanticAnalyzer analyzer;
             //#############################
 
 
-            success = Lexer.Lex("if(a > 3 && !(b || c) || !d)\n" +
-                                "{\n" +
-                                "int e = 42;\n" +
-                                "int b;\n" +
-                                "}\n", out result);
+            success = Lexer.Lex("int a = 2;\n" +
+                                "string b = \"Hi\";\n" +
+                                "bool c = true;\n" +
+                                "a = \"Bye\";\n" +
+                                "a = false;\n" +
+                                "b = 2;\n" +
+                                "b = true;\n" +
+                                "c = 14;\n" +
+                                "c = \"Hello\";", out result);
 
             messages = Parser.Parse(result, out twee);
 
             LogTree(twee!, 0);
+
+            analyzer = new SemanticAnalyzer();
+            analyzer.Analyze(twee!);
         }
 
         private static void LogTree(ParseNode node, int depth)

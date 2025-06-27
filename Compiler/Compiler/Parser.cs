@@ -186,9 +186,12 @@ namespace Compiler
 
 
     //[DebuggerDisplay("{this.GetType().Name}")]
+    public class OpensScopeAttribute : Attribute;
+
     public record class ParseNode
     {
         public List<object> Children = [];//i know this is bad, it's (hopefully) temporary
+        public virtual (int row, int column) Location { get; protected set; }
         public virtual bool IsColapsable
         {
             get
@@ -262,6 +265,7 @@ namespace Compiler
     public record class ASTNode(IToken Token) : ParseNode
     {
         public override bool IsColapsable => false;
+        public override (int row, int column) Location => (Token.Row, Token.Column);
         public override string ToString()
         {
             return Token.Text;
@@ -298,6 +302,8 @@ namespace Compiler
         {
             base.Hoist();
 
+            Location = ((Children[0] as IToken)!.Row, (Children[0] as IToken)!.Column);
+
             Name = (Children[0] as IToken)!.Text;
             Children.RemoveAt(0);//remove the name token
 
@@ -315,6 +321,8 @@ namespace Compiler
         public override ParseNode Hoist()
         {
             base.Hoist();
+
+            Location = ((Children[0] as IToken)!.Row, (Children[0] as IToken)!.Column);
 
             Type = (Children[0] as IToken)!.Text;
             Children.RemoveAt(0);//remove the type token
@@ -426,11 +434,14 @@ namespace Compiler
     }
     #endregion
 
+    [OpensScope]
     public record class IfStatement : ParseNode
     {
         public override ParseNode Hoist()
         {
             base.Hoist();
+
+            Location = ((Children[0] as IToken)!.Row, (Children[0] as IToken)!.Column);
 
             Children.RemoveAt(0); //remove the if keyword
             Children.RemoveAt(0); //remove the open parenthesis
