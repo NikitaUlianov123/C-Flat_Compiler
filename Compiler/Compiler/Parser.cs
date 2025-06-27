@@ -17,9 +17,10 @@ namespace Compiler
         {
             [typeof(Program)] = [[typeof(PossibleStatements), typeof(Program)],
                                  []],
-            [typeof(PossibleStatements)] = [[typeof(PrintStatement)],
-                                            [typeof(IfStatement)],
+            [typeof(PossibleStatements)] = [
+                                            [typeof(PrintStatement)],
                                             [typeof(VariableExpr)],
+                                            [typeof(IfStatement)],
                                             ],
 
             [typeof(PrintStatement)] = [[typeof(PrintKeyword), typeof(OpenParenthesis), typeof(StringValue), typeof(CloseParenthesis), typeof(Semicolon)],//print("hello")
@@ -31,7 +32,8 @@ namespace Compiler
                                              [typeof(Identifier), typeof(Identifier), typeof(AssignmentOperator), typeof(VariableValue), typeof(Semicolon)]],//int a = 5;
             [typeof(VariableAssignment)] = [[typeof(Identifier), typeof(AssignmentOperator), typeof(VariableValue), typeof(Semicolon)]],
             [typeof(VariableValue)] = [[typeof(MathExpr)],
-                                       [typeof(StringValue)]],
+                                       [typeof(StringValue)],
+                                       [typeof(BoolLiteral)]],
 
             #region Maph
             [typeof(MathExpr)] = [[typeof(MathTerm), typeof(MathExprTail)]],
@@ -85,7 +87,7 @@ namespace Compiler
             {
                 var newKid = parse(typeof(Program), tokens);
 
-                if (newKid == null)//there was a problem
+                if (newKid == null || newKid.Children.Count == 0)//there was a problem
                 {
                     messages.Add($"Invalid statement. row {tokens[0].Row}, column {tokens[0].Column}");
 
@@ -282,7 +284,7 @@ namespace Compiler
 
             var result = new ASTNode((Children[0] as IToken)!);//the print keyword
 
-            result.Children.Add(Children[2]);//the stuff between the parens
+            result.Children.Add(new ASTNode((Children[2] as IToken)!));//the stuff between the parens
             return result;
         }
     }
@@ -447,7 +449,14 @@ namespace Compiler
             Children.RemoveAt(0); //remove the open parenthesis
             Children.RemoveAt(1); //remove the close parenthesis
             Children.RemoveAt(1); //remove the open curly bracket
-            Children.RemoveAt(2); //remove the close curly bracket
+            if (Children.Count > 2)//if there is a body
+            {
+                Children.RemoveAt(2); //remove the close curly bracket
+            }
+            else
+            { 
+                Children.RemoveAt(1); //remove the close curly bracket
+            }
 
             return this;
         }

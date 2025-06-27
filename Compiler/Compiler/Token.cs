@@ -128,9 +128,18 @@ namespace Compiler.Tokens
     public record AndOperator(string Text, int Row, int Column) : IToken;
     public record OrOperator(string Text, int Row, int Column) : IToken;
     public record NotOperator(string Text, int Row, int Column) : IToken;
+    public class NumericComparisonOperatorAttribute : Attribute;
+
+    [NumericComparisonOperator]
     public record GreaterThanOperator(string Text, int Row, int Column) : IToken;
+
+    [NumericComparisonOperator]
     public record LessThanOperator(string Text, int Row, int Column) : IToken;
+
+    [NumericComparisonOperator]
     public record GreaterThanOrEqualOperator(string Text, int Row, int Column) : IToken;
+
+    [NumericComparisonOperator]
     public record LessThanOrEqualOperator(string Text, int Row, int Column) : IToken;
     #endregion
     #endregion

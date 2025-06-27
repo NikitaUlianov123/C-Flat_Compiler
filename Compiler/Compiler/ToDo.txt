@@ -6,12 +6,12 @@ Implemented Features:
 
 
 Semantic Analyzed Features:
+variables
+if
 
 
 AST'd Features:
 print
-variables
-if
 
 
 CST'd Features:
@@ -33,5 +33,7 @@ functions in classes
 properties?
 inheritance
 
-Ideas/Notes:
-use a ton of polymorphism for tokenizing
+
+
+General ToDo:
+Modularize type requirements somehow (ex: don't need special check for if statement, it just knows it needs bool)

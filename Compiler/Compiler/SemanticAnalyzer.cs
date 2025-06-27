@@ -59,11 +59,13 @@ namespace Compiler
         {
         }
 
-        public void Analyze(ParseNode node)
+        public List<string> Analyze(ParseNode node)
         {
             List<string> messages = [];
             GetSymbols(node, messages, new());
             ;
+
+            return messages;
         }
 
         public void GetSymbols(ParseNode node, List<string> messages, ScopeStack scopes)
@@ -83,15 +85,17 @@ namespace Compiler
                 {
                     if (decl.Children.Count > 1) throw new Exception("VarDecl has multiple values");
 
-
+                    CheckType(decl, decl.Type, messages, scopes);
                 }
             }
             if (node is VariableAssignment assignment)
             {
-                if (!scopes.Contains(assignment.Name))
+                if (!scopes.TryGetValue(assignment.Name, out VarInfo value))
                 {
                     messages.Add($"Variable '{assignment.Name}' not declared in scope. {assignment.Location.row}, {assignment.Location.column}");
                 }
+
+                CheckType(assignment, value.Type, messages, scopes);
             }
             if (node is ASTNode ast && ast.Token is Identifier id)
             {
@@ -99,6 +103,16 @@ namespace Compiler
                 {
                     messages.Add($"Variable '{id.Text}' not declared in scope. {id.Row}, {id.Column}");
                 }
+            }
+
+            if (node is IfStatement)
+            {
+                CheckType(node, "bool", messages, scopes);
+            }
+
+            if (node is ASTNode asty && asty.Token is PrintKeyword)
+            {
+                CheckType(node, "string", messages, scopes);
             }
 
             foreach (var child in node.Children)
@@ -120,7 +134,7 @@ namespace Compiler
 
         private void CheckType(ParseNode node, string type, List<string> messages, ScopeStack scopes)
         {
-            if (node is ASTNode ast && ast.Children.Count == 0)
+            if (node is ASTNode ast && ast.Children.Count == 0) //is terminal
             {
                 if (ast.Token is Identifier id)
                 {
@@ -128,7 +142,7 @@ namespace Compiler
                     {
                         if (info.Type != type)
                         {
-                            messages.Add($"Expected type '{type}' but found '{id.Text}' at {id.Row}, {id.Column}");
+                            messages.Add($"Expected type '{type}' but found '{id.Text}'({info.Type}) at {id.Row}, {id.Column}");
                         }
                     }
                 }
@@ -148,7 +162,7 @@ namespace Compiler
                 }
                 else if (ast.Token is BoolLiteral or TrueKeyword or FalseKeyword)
                 {
-                    if (type != "string")
+                    if (type != "bool")
                     {
                         messages.Add($"Expected type '{type}' but found bool literal at {ast.Location.row}, {ast.Location.column}");
                     }
@@ -158,7 +172,14 @@ namespace Compiler
             {
                 foreach (var child in node.Children)
                 {
-                    CheckType((child as ParseNode)!, type, messages, scopes);
+                    if (child is ASTNode nodey && nodey.Token.GetType().GetCustomAttributes(typeof(NumericComparisonOperatorAttribute), true).Length > 0)//child token is a comparison
+                    {
+                        CheckType((child as ParseNode)!, "int", messages, scopes);
+                    }
+                    else
+                    {
+                        CheckType((child as ParseNode)!, type, messages, scopes);
+                    }
                 }
             }
         }
