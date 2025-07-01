@@ -194,6 +194,7 @@ namespace Compiler
     {
         public List<object> Children = [];//i know this is bad, it's (hopefully) temporary
         public virtual (int row, int column) Location { get; protected set; }
+        public string TypeExpected { get; set; } = "";
         public virtual bool IsColapsable
         {
             get
@@ -210,6 +211,7 @@ namespace Compiler
                 return nonCollapsableChildren <= 1;
             }
         }
+
         public ParseNode? Collapse()
         {
             for (int i = 0; i < Children.Count; i++)
@@ -268,6 +270,12 @@ namespace Compiler
     {
         public override bool IsColapsable => false;
         public override (int row, int column) Location => (Token.Row, Token.Column);
+
+        public ASTNode(IToken token, string type = "") : this(token)
+        {
+            TypeExpected = type;
+        }
+
         public override string ToString()
         {
             return Token.Text;
@@ -276,6 +284,7 @@ namespace Compiler
 
     public record class Program() : ParseNode;
     public record class PossibleStatements : ParseNode;
+    
     public record class PrintStatement : ParseNode
     {
         public override ParseNode Hoist()
@@ -284,7 +293,7 @@ namespace Compiler
 
             var result = new ASTNode((Children[0] as IToken)!);//the print keyword
 
-            result.Children.Add(new ASTNode((Children[2] as IToken)!));//the stuff between the parens
+            result.Children.Add(new ASTNode((Children[2] as IToken)!, "string"));//the stuff between the parens
             return result;
         }
     }
@@ -343,6 +352,7 @@ namespace Compiler
         }
     }
     public record class VariableValue : ParseNode;
+
     #region Maph
     public record class MathExpr : ParseNode
     {
@@ -458,6 +468,8 @@ namespace Compiler
                 Children.RemoveAt(1); //remove the close curly bracket
             }
 
+            TypeExpected = "bool";
+
             return this;
         }
     }
@@ -549,6 +561,10 @@ namespace Compiler
             }
             result.Children.Add(Children[0]);//the left side
             result.Children.Add(Children[2]);//the right side
+
+
+            result.TypeExpected = "int";
+
 
             return result;
         }

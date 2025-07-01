@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
@@ -105,14 +106,9 @@ namespace Compiler
                 }
             }
 
-            if (node is IfStatement)
+            if (node.TypeExpected != "")
             {
-                CheckType(node, "bool", messages, scopes);
-            }
-
-            if (node is ASTNode asty && asty.Token is PrintKeyword)
-            {
-                CheckType(node, "string", messages, scopes);
+                CheckType(node, node.TypeExpected, messages, scopes);
             }
 
             foreach (var child in node.Children)
@@ -172,9 +168,11 @@ namespace Compiler
             {
                 foreach (var child in node.Children)
                 {
-                    if (child is ASTNode nodey && nodey.Token.GetType().GetCustomAttributes(typeof(NumericComparisonOperatorAttribute), true).Length > 0)//child token is a comparison
+                    if (child is ASTNode nodey && nodey.TypeExpected != "")//child token expects a certain type
                     {
-                        CheckType((child as ParseNode)!, "int", messages, scopes);
+                        continue;
+                        //if will get type checked when we get to that part of scope checking
+                        //CheckType((child as ParseNode)!, nodey.TypeExpected, messages, scopes);
                     }
                     else
                     {
