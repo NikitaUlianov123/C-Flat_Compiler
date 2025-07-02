@@ -45,9 +45,9 @@ namespace Compiler.Tokens
             [@"^\}"] = (text, row, column) => new CloseCurlyBracket(text, row, column),
 
             // Operators
-            [@"^="] = (text, row, column) => new AssignmentOperator(text, row, column),
             [@"^=\?"] = (text, row, column) => new EqualityOperator(text, row, column),
             [@"^!="] = (text, row, column) => new NotEqualityOperator(text, row, column),
+            [@"^="] = (text, row, column) => new AssignmentOperator(text, row, column),
             // Math Operators
             [@"^\+"] = (text, row, column) => new PlusOperator(text, row, column),
             [@"^-"] = (text, row, column) => new MinusOperator(text, row, column),
@@ -109,37 +109,24 @@ namespace Compiler.Tokens
 
     #region Operators
     public record AssignmentOperator(string Text, int Row, int Column) : IToken;
-    public record EqualityOperator(string Text, int Row, int Column) : IToken;
-    public record NotEqualityOperator(string Text, int Row, int Column) : IToken;
 
     #region Math Operators
-    public class MathOperatorAttribute : Attribute;
-    [MathOperator]
     public record PlusOperator(string Text, int Row, int Column) : IToken;
-    [MathOperator]
     public record MinusOperator(string Text, int Row, int Column) : IToken;
-    [MathOperator]
     public record TimesOperator(string Text, int Row, int Column) : IToken;
-    [MathOperator]
     public record DivideOperator(string Text, int Row, int Column) : IToken;
 
     #endregion
+
     #region Bool Operators
+    public record EqualityOperator(string Text, int Row, int Column) : IToken;
+    public record NotEqualityOperator(string Text, int Row, int Column) : IToken;
     public record AndOperator(string Text, int Row, int Column) : IToken;
     public record OrOperator(string Text, int Row, int Column) : IToken;
     public record NotOperator(string Text, int Row, int Column) : IToken;
-    public class NumericComparisonOperatorAttribute : Attribute;
-
-    [NumericComparisonOperator]
     public record GreaterThanOperator(string Text, int Row, int Column) : IToken;
-
-    [NumericComparisonOperator]
     public record LessThanOperator(string Text, int Row, int Column) : IToken;
-
-    [NumericComparisonOperator]
     public record GreaterThanOrEqualOperator(string Text, int Row, int Column) : IToken;
-
-    [NumericComparisonOperator]
     public record LessThanOrEqualOperator(string Text, int Row, int Column) : IToken;
     #endregion
     #endregion

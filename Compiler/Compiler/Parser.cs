@@ -21,6 +21,7 @@ namespace Compiler
                                             [typeof(PrintStatement)],
                                             [typeof(VariableExpr)],
                                             [typeof(IfStatement)],
+                                            [typeof(WhileLoop)],
                                             ],
 
             [typeof(PrintStatement)] = [[typeof(PrintKeyword), typeof(OpenParenthesis), typeof(StringValue), typeof(CloseParenthesis), typeof(Semicolon)],//print("hello")
@@ -52,6 +53,7 @@ namespace Compiler
             #endregion
 
             [typeof(IfStatement)] = [[typeof(IfKeyword), typeof(OpenParenthesis), typeof(BoolExpr), typeof(CloseParenthesis), typeof(OpenCurlyBracket), typeof(Program), typeof(CloseCurlyBracket)]],
+            [typeof(WhileLoop)] = [[typeof(WhileKeyword), typeof(OpenParenthesis), typeof(BoolExpr), typeof(CloseParenthesis), typeof(OpenCurlyBracket), typeof(Program), typeof(CloseCurlyBracket)]],
             #region bool
             [typeof(BoolExpr)] = [[typeof(BoolAndExpr), typeof(BoolOrExprTail)]],
             [typeof(BoolOrExprTail)] = [[typeof(OrOperator), typeof(BoolAndExpr), typeof(BoolOrExprTail)],
@@ -91,7 +93,7 @@ namespace Compiler
                 {
                     messages.Add($"Invalid statement. row {tokens[0].Row}, column {tokens[0].Column}");
 
-                    while (tokens[0] is not Semicolon)//panic mode
+                    while (tokens[0] is not Semicolon && tokens.Count > 1)//panic mode
                     {
                         tokens.RemoveAt(0);
                     }
@@ -476,7 +478,34 @@ namespace Compiler
                 Children.RemoveAt(1); //remove the close curly bracket
             }
 
-            TypeExpected = "bool";
+            (Children[0] as ParseNode)!.TypeExpected = "bool";//the condition should be a bool
+
+            return this;
+        }
+    }
+    [OpensScope]
+    public record class WhileLoop : ParseNode
+    {
+        public override ParseNode Hoist()
+        {
+            base.Hoist();
+
+            Location = ((Children[0] as IToken)!.Row, (Children[0] as IToken)!.Column);
+
+            Children.RemoveAt(0); //remove the while keyword
+            Children.RemoveAt(0); //remove the open parenthesis
+            Children.RemoveAt(1); //remove the close parenthesis
+            Children.RemoveAt(1); //remove the open curly bracket
+            if (Children.Count > 2)//if there is a body
+            {
+                Children.RemoveAt(2); //remove the close curly bracket
+            }
+            else
+            {
+                Children.RemoveAt(1); //remove the close curly bracket
+            }
+
+            (Children[0] as ParseNode)!.TypeExpected = "bool";//the condition should be a bool
 
             return this;
         }
@@ -568,7 +597,10 @@ namespace Compiler
                 result = (Children[1] as ParseNode)!;
             }
             result.Children.Add(Children[0]);//the left side
+            (result.Children[0] as ParseNode)!.TypeExpected = "int";
+
             result.Children.Add(Children[2]);//the right side
+            (result.Children[1] as ParseNode)!.TypeExpected = "int";
 
 
             result.TypeExpected = "int";

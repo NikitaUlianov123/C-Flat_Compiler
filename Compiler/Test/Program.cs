@@ -16,12 +16,8 @@ namespace Test
             SemanticAnalyzer analyzer;
             //#############################
 
-
-            success = Lexer.Lex(
-                                "int a = 42;\n" +
-                                "a = a+1;" +
-                                "print(a);"
-                                , out result);
+            string program = File.ReadAllText(@"../../../Program.txt");
+            success = Lexer.Lex(program, out result);
 
             messages = Parser.Parse(result, out twee);
 

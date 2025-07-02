@@ -18,6 +18,39 @@ namespace Compiler
 {
     public static class CodeGen
     {
+        private static readonly Dictionary<Type, OpCode> Comparisons = new()
+        {
+            [typeof(LessThanOperator)] = OpCodes.Clt,
+            //[typeof(LessThanOrEqualOperator)] = OpCodes.cl,
+            [typeof(GreaterThanOperator)] = OpCodes.Cgt,
+            //[typeof(GreaterThanOrEqualOperator)] = OpCodes.Bge,
+            [typeof(EqualityOperator)] = OpCodes.Ceq,
+            //[typeof(NotEqualityOperator)] = OpCodes.c,
+        };
+
+        private static readonly Dictionary<Type, OpCode> MathOperators = new()
+        {
+            [typeof(PlusOperator)] = OpCodes.Add,
+            [typeof(MinusOperator)] = OpCodes.Sub,
+            [typeof(TimesOperator)] = OpCodes.Mul,
+            [typeof(DivideOperator)] = OpCodes.Div,
+        };
+
+        private static readonly Dictionary<string, Type> TypeMap = new()
+        {
+            ["int"] = typeof(int),
+            ["string"] = typeof(string),
+            ["bool"] = typeof(bool),
+            ["float"] = typeof(float),
+            ["double"] = typeof(double),
+            ["char"] = typeof(char),
+            ["object"] = typeof(object),
+            ["long"] = typeof(long),
+            ["short"] = typeof(short),
+            ["byte"] = typeof(byte),
+        };
+
+
         public static string GenerateCode(ParseNode tree, Dictionary<string, VarInfo> symbols)
         {
             string assemblyName = "EmittedProgram";
@@ -79,6 +112,7 @@ namespace Compiler
         {
             if (node is ASTNode ast)
             {
+                #region basic values
                 if (ast.Token is NumericValue number)
                 {
                     il.Emit(OpCodes.Ldc_I4_S, number.Number);
@@ -95,6 +129,7 @@ namespace Compiler
                 {
                     il.Emit(OpCodes.Ldc_I4_0);
                 }
+                #endregion
                 else if (ast.Token is Identifier id)
                 {
                     il.Emit(OpCodes.Ldloc, locals[id.Text]);
@@ -117,13 +152,23 @@ namespace Compiler
                     }
                     return;
                 }
-                else if (ast.Token is PlusOperator)
+                else if (MathOperators.TryGetValue(ast.Token.GetType(), out var MathOp))
                 {
                     EmitMethodBody(il, (ast.Children[0] as ParseNode)!, locals, symbols);
                     EmitMethodBody(il, (ast.Children[1] as ParseNode)!, locals, symbols);
-                    il.Emit(OpCodes.Add);
+
+                    il.Emit(MathOp);
                     return;
                 }
+                else if (Comparisons.TryGetValue(ast.Token.GetType(), out var CompOp))
+                {
+                    EmitMethodBody(il, (ast.Children[0] as ParseNode)!, locals, symbols);
+                    EmitMethodBody(il, (ast.Children[1] as ParseNode)!, locals, symbols);
+
+                    il.Emit(CompOp);
+                    return;
+                }
+
             }
             else if (node is VariableDeclaration decl)
             {
@@ -142,6 +187,41 @@ namespace Compiler
                 il.Emit(OpCodes.Stloc_S, locals[assignment.Name]);
                 return;
             }
+            else if (node is IfStatement)
+            {
+                //condition
+                EmitMethodBody(il, (node.Children[0] as ParseNode)!, locals, symbols);
+
+                var ifFalseLabel = il.DefineLabel();
+
+                il.Emit(OpCodes.Brfalse_S, ifFalseLabel);
+
+                //body
+                EmitMethodBody(il, (node.Children[1] as ParseNode)!, locals, symbols);
+
+                il.MarkLabel(ifFalseLabel);
+                return;
+            }
+            else if (node is WhileLoop)
+            {
+                var LoopLabel = il.DefineLabel();
+                var ifFalseLabel = il.DefineLabel();
+
+                il.MarkLabel(LoopLabel);
+                
+                //condition
+                EmitMethodBody(il, (node.Children[0] as ParseNode)!, locals, symbols);
+                
+                il.Emit(OpCodes.Brfalse, ifFalseLabel);
+
+                //body
+                EmitMethodBody(il, (node.Children[1] as ParseNode)!, locals, symbols);
+
+                il.Emit(OpCodes.Br, LoopLabel);
+
+                il.MarkLabel(ifFalseLabel);
+                return;
+            }
 
 
             for (int i = 0; i < node.Children.Count; i++)
@@ -152,19 +232,5 @@ namespace Compiler
                 }
             }
         }
-
-        private static readonly Dictionary<string, Type> TypeMap = new()
-        {
-            ["int"] = typeof(int),
-            ["string"] = typeof(string),
-            ["bool"] = typeof(bool),
-            ["float"] = typeof(float),
-            ["double"] = typeof(double),
-            ["char"] = typeof(char),
-            ["object"] = typeof(object),
-            ["long"] = typeof(long),
-            ["short"] = typeof(short),
-            ["byte"] = typeof(byte),
-        };
     }
 }

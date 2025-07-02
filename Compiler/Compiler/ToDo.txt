@@ -3,12 +3,13 @@ Compiler for a more featureful(than my first attempt) C#-like language
 
 
 Implemented Features:
+variables
+print
+if //mostly; <=, >=, and != don't work yet
+while
 
 
 Semantic Analyzed Features:
-variables
-if
-print
 
 
 AST'd Features:
@@ -21,7 +22,6 @@ Tokenized Features:
 ifn't
 else
 else if
-while
 for
 
 
