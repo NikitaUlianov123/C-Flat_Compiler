@@ -39,11 +39,11 @@ namespace Compiler
         }
 
         public void Push(string symbol, VarInfo info) => scopes.Last().Add(symbol, info);
+        public void Push(string symbol, VarInfo info, int scope) => scopes[scope].Add(symbol, info);
 
         public void PushScope() => scopes.Add([]);
 
         public void PopScope() => scopes.RemoveAt(scopes.Count - 1);
-
     }
     public struct VarInfo
     {
@@ -58,18 +58,19 @@ namespace Compiler
     {
         public SemanticAnalyzer()
         {
+
         }
 
-        public List<string> Analyze(ParseNode node)
+        public List<string> Analyze(ParseNode node, out Dictionary<string, VarInfo> symbols)
         {
             List<string> messages = [];
-            GetSymbols(node, messages, new());
+            symbols = GetSymbols(node, messages, new(), []);
             ;
 
             return messages;
         }
 
-        public void GetSymbols(ParseNode node, List<string> messages, ScopeStack scopes)
+        public Dictionary<string, VarInfo> GetSymbols(ParseNode node, List<string> messages, ScopeStack scopes, Dictionary<string, VarInfo> symbols, int scope = 0)
         {
             if (node is VariableDeclaration decl)
             {
@@ -80,6 +81,7 @@ namespace Compiler
                 else
                 {
                     scopes.Push(decl.Name, new VarInfo(decl.Type));
+                    symbols.Add(decl.Name, new VarInfo(decl.Type));
                 }
 
                 if (decl.Children.Count > 0)
@@ -119,13 +121,15 @@ namespace Compiler
                     scopes.PushScope();
                 }
 
-                GetSymbols((child as ParseNode)!, messages, scopes);
+                GetSymbols((child as ParseNode)!, messages, scopes, symbols);
 
                 if (opensScope)
                 {
                     scopes.PopScope();
                 }
             }
+
+            return symbols;
         }
 
         private void CheckType(ParseNode node, string type, List<string> messages, ScopeStack scopes)

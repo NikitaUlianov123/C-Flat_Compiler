@@ -8,10 +8,10 @@ Implemented Features:
 Semantic Analyzed Features:
 variables
 if
+print
 
 
 AST'd Features:
-print
 
 
 CST'd Features:

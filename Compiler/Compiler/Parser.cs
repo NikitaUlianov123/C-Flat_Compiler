@@ -293,7 +293,15 @@ namespace Compiler
 
             var result = new ASTNode((Children[0] as IToken)!);//the print keyword
 
-            result.Children.Add(new ASTNode((Children[2] as IToken)!, "string"));//the stuff between the parens
+            //the stuff between the parens
+            if (Children[2] is StringValue)
+            {
+                result.Children.Add(new ASTNode((Children[2] as IToken)!, "string"));
+            }
+            else
+            { 
+                result.Children.Add(new ASTNode((Children[2] as IToken)!));
+            }
             return result;
         }
     }

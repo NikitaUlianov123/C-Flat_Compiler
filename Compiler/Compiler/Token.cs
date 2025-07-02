@@ -147,7 +147,10 @@ namespace Compiler.Tokens
     #region Values
     public record StringValue(string Text, int Row, int Column) : IToken;
     [DebuggerDisplay("Numeric value: {Text}")]
-    public record NumericValue(string Text, int Row, int Column) : IToken;
+    public record NumericValue(string Text, int Row, int Column) : IToken
+    {
+        public int Number => int.Parse(Text);
+    }
     #endregion
 
     public record Identifier(string Text, int Row, int Column) : IToken;
