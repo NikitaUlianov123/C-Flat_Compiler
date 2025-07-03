@@ -21,11 +21,14 @@ namespace Compiler
         private static readonly Dictionary<Type, OpCode> Comparisons = new()
         {
             [typeof(LessThanOperator)] = OpCodes.Clt,
-            //[typeof(LessThanOrEqualOperator)] = OpCodes.cl,
             [typeof(GreaterThanOperator)] = OpCodes.Cgt,
-            //[typeof(GreaterThanOrEqualOperator)] = OpCodes.Bge,
             [typeof(EqualityOperator)] = OpCodes.Ceq,
-            //[typeof(NotEqualityOperator)] = OpCodes.c,
+        };
+        private static readonly Dictionary<Type, OpCode> AnnoyingComparisons = new()
+        {
+            [typeof(LessThanOrEqualOperator)] = OpCodes.Cgt,
+            [typeof(GreaterThanOrEqualOperator)] = OpCodes.Clt,
+            [typeof(NotEqualityOperator)] = OpCodes.Ceq,
         };
 
         private static readonly Dictionary<Type, OpCode> MathOperators = new()
@@ -34,6 +37,12 @@ namespace Compiler
             [typeof(MinusOperator)] = OpCodes.Sub,
             [typeof(TimesOperator)] = OpCodes.Mul,
             [typeof(DivideOperator)] = OpCodes.Div,
+        };
+
+        private static readonly Dictionary<Type, OpCode> BoolOperators = new()
+        {
+            [typeof(AndOperator)] = OpCodes.And,
+            [typeof(OrOperator)] = OpCodes.Or,
         };
 
         private static readonly Dictionary<string, Type> TypeMap = new()
@@ -115,7 +124,7 @@ namespace Compiler
                 #region basic values
                 if (ast.Token is NumericValue number)
                 {
-                    il.Emit(OpCodes.Ldc_I4_S, number.Number);
+                    il.Emit(OpCodes.Ldc_I4, number.Number);
                 }
                 else if (ast.Token is StringValue str)
                 {
@@ -144,9 +153,9 @@ namespace Compiler
                             il.Emit(OpCodes.Call, typeof(Console).GetMethod("WriteLine", [typeof(string)]));
                         }
                         else if (astNode.Token is Identifier)
-                        { 
+                        {
                             string variableName = (ast.Children[0] as ASTNode)!.Token.Text;
-                            il.Emit(OpCodes.Ldloc_S, locals[variableName]);
+                            il.Emit(OpCodes.Ldloc, locals[variableName]);
                             il.Emit(OpCodes.Call, typeof(Console).GetMethod("WriteLine", [TypeMap[symbols[variableName].Type]])!);
                         }
                     }
@@ -168,6 +177,35 @@ namespace Compiler
                     il.Emit(CompOp);
                     return;
                 }
+                else if (BoolOperators.TryGetValue(ast.Token.GetType(), out var BoolOp))
+                {
+                    EmitMethodBody(il, (ast.Children[0] as ParseNode)!, locals, symbols);
+                    EmitMethodBody(il, (ast.Children[1] as ParseNode)!, locals, symbols);
+
+                    il.Emit(BoolOp);
+                    return;
+                }
+                else if (AnnoyingComparisons.TryGetValue(ast.Token.GetType(), out var ACompOp))
+                {
+                    EmitMethodBody(il, (ast.Children[0] as ParseNode)!, locals, symbols);
+                    EmitMethodBody(il, (ast.Children[1] as ParseNode)!, locals, symbols);
+
+                    il.Emit(ACompOp);
+
+                    //Negate result of comparison
+                    il.Emit(OpCodes.Ldc_I4_0);//load false
+                    il.Emit(OpCodes.Ceq);//essentially !bool => bool == false
+                    return;
+                }
+                else if (ast.Token is NotOperator)
+                {
+                    EmitMethodBody(il, (ast.Children[0] as ParseNode)!, locals, symbols);
+
+                    il.Emit(OpCodes.Ldc_I4_0);//load false
+                    il.Emit(OpCodes.Ceq);//essentially !bool => bool == false
+                    return;
+                }
+
 
             }
             else if (node is VariableDeclaration decl)
@@ -177,14 +215,14 @@ namespace Compiler
 
                 EmitMethodBody(il, (decl.Children[0] as ParseNode)!, locals, symbols);
 
-                il.Emit(OpCodes.Stloc_S, locals[decl.Name]);
+                il.Emit(OpCodes.Stloc, locals[decl.Name]);
                 return;
             }
             else if (node is VariableAssignment assignment)
             {
                 EmitMethodBody(il, (assignment.Children[0] as ParseNode)!, locals, symbols);
 
-                il.Emit(OpCodes.Stloc_S, locals[assignment.Name]);
+                il.Emit(OpCodes.Stloc, locals[assignment.Name]);
                 return;
             }
             else if (node is IfStatement)
@@ -194,7 +232,7 @@ namespace Compiler
 
                 var ifFalseLabel = il.DefineLabel();
 
-                il.Emit(OpCodes.Brfalse_S, ifFalseLabel);
+                il.Emit(OpCodes.Brfalse, ifFalseLabel);
 
                 //body
                 EmitMethodBody(il, (node.Children[1] as ParseNode)!, locals, symbols);

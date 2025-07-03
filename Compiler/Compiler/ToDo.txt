@@ -5,7 +5,7 @@ Compiler for a more featureful(than my first attempt) C#-like language
 Implemented Features:
 variables
 print
-if //mostly; <=, >=, and != don't work yet
+if
 while
 
 
@@ -27,7 +27,9 @@ for
 
 ToDo Features:
 goto
+functions
 arrays
+type inference?(var)
 classes
 functions in classes
 properties?

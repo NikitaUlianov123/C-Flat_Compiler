@@ -57,10 +57,10 @@ namespace Compiler.Tokens
             [@"^&&"] = (text, row, column) => new AndOperator(text, row, column),
             [@"^\|\|"] = (text, row, column) => new OrOperator(text, row, column),
             [@"^!"] = (text, row, column) => new NotOperator(text, row, column),
-            [@"^>"] = (text, row, column) => new GreaterThanOperator(text, row, column),
-            [@"^<"] = (text, row, column) => new LessThanOperator(text, row, column),
             [@"^>="] = (text, row, column) => new GreaterThanOrEqualOperator(text, row, column),
             [@"^<="] = (text, row, column) => new LessThanOrEqualOperator(text, row, column),
+            [@"^>"] = (text, row, column) => new GreaterThanOperator(text, row, column),
+            [@"^<"] = (text, row, column) => new LessThanOperator(text, row, column),
 
             // Values
             [@"^""(?:[^""\\]|\\.)*"""] = (text, row, column) => new StringValue(text, row, column),

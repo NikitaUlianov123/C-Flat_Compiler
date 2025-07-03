@@ -1,27 +1,16 @@
-﻿int answer = 37;
+﻿int a = 200;
 
-int min = 0;
-int max = 100;
-bool notDone = true;
-while(notDone)
+if(a <= 37)
 {
-	int guess = (min + max) / 2;
-	print(guess);
-	if(guess < answer)
-	{
-		print("Too low");
-		min = guess;
-	}
-	if(guess > answer)
-	{
-		print("Too high");
-		max = guess;
-	}
-	if(guess =? answer)
-	{
-		print("Correct!");
-		notDone = false;
-	}
-	int a = 4;
+	print("Hi");
 }
-print("Goodbye");
+
+if(a >= 37)
+{
+	print("Hello");
+}
+
+if(a != 2)
+{
+	print("Yay");
+}
