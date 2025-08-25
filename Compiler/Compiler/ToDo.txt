@@ -26,6 +26,7 @@ for
 
 
 ToDo Features:
+comments
 goto
 functions
 arrays
@@ -34,8 +35,4 @@ classes
 functions in classes
 properties?
 inheritance
-
-
-
-General ToDo:
-Modularize type requirements somehow (ex: don't need special check for if statement, it just knows it needs bool)
+user input

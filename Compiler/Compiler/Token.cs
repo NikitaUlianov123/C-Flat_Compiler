@@ -30,6 +30,7 @@ namespace Compiler.Tokens
             // Keywords
             [@"^print\b"] = (text, row, column) => new PrintKeyword(text, row, column),
             [@"^if\b"] = (text, row, column) => new IfKeyword(text, row, column),
+            [@"^ifn't\b"] = (text, row, column) => new IfKeyword(text, row, column),
             [@"^else\b"] = (text, row, column) => new ElseKeyword(text, row, column),
             [@"^while\b"] = (text, row, column) => new WhileKeyword(text, row, column),
             [@"^for\b"] = (text, row, column) => new ForKeyword(text, row, column),
@@ -91,6 +92,7 @@ namespace Compiler.Tokens
     #region Keywords
     public record PrintKeyword(string Text, int Row, int Column) : IToken;
     public record IfKeyword(string Text, int Row, int Column) : IToken;
+    public record IfntKeyword(string Text, int Row, int Column) : IToken;
     public record ElseKeyword(string Text, int Row, int Column) : IToken;
     public record WhileKeyword(string Text, int Row, int Column) : IToken;
     public record ForKeyword(string Text, int Row, int Column) : IToken;

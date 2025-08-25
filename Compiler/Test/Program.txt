@@ -4,13 +4,20 @@ if(a <= 37)
 {
 	print("Hi");
 }
+else if(a < 37)
+{
+	print("Hey");
+}
+else
+{
+	print("Sup");
+}
 
-if(a >= 37)
+ifn't(a <= 37)
 {
 	print("Hello");
 }
-
-if(a != 2)
+else ifn't(a != 2)
 {
 	print("Yay");
 }

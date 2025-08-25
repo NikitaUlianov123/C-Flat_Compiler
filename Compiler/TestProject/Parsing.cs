@@ -9,7 +9,7 @@ using System.Runtime.CompilerServices;
 namespace TestProject
 {
     [TestClass]
-    public sealed class Test1
+    public sealed class Parsing
     {
         [TestMethod]
         public void PrintTest()
@@ -79,13 +79,12 @@ namespace TestProject
                                 "e = 3;", out result);
 
             messages = Parser.Parse(result, out twee);
-
-            ;
-
-            analyzer = new SemanticAnalyzer();
-            //analyzer.Analyze(twee!, symbols);
         }
+    }
 
+    [TestClass]
+    public sealed class Semantic
+    {
         [TestMethod]
         public void TypeTest()
         {
