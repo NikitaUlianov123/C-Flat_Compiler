@@ -21,6 +21,7 @@ namespace Compiler
                                             [typeof(PrintStatement)],
                                             [typeof(VariableExpr)],
                                             [typeof(IfStatement)],
+                                            [typeof(IfntStatement)],
                                             [typeof(WhileLoop)],
                                             ],
 
@@ -52,7 +53,13 @@ namespace Compiler
                                     [typeof(Identifier)]],
             #endregion
 
-            [typeof(IfStatement)] = [[typeof(IfKeyword), typeof(OpenParenthesis), typeof(BoolExpr), typeof(CloseParenthesis), typeof(OpenCurlyBracket), typeof(Program), typeof(CloseCurlyBracket)]],
+            [typeof(IfStatement)] = [[typeof(IfKeyword), typeof(OpenParenthesis), typeof(BoolExpr), typeof(CloseParenthesis), typeof(OpenCurlyBracket), typeof(Program), typeof(CloseCurlyBracket), typeof(IfFollowUp)]],
+            [typeof(IfntStatement)] = [[typeof(IfntKeyword), typeof(OpenParenthesis), typeof(BoolExpr), typeof(CloseParenthesis), typeof(OpenCurlyBracket), typeof(Program), typeof(CloseCurlyBracket), typeof(IfFollowUp)]],
+            [typeof(IfFollowUp)] = [[typeof(ElseKeyword), typeof(OpenCurlyBracket), typeof(Program), typeof(CloseCurlyBracket)],
+                                    [typeof(ElseKeyword), typeof(IfStatement)],
+                                    [typeof(ElseKeyword), typeof(IfntStatement)],
+                                    []],
+
             [typeof(WhileLoop)] = [[typeof(WhileKeyword), typeof(OpenParenthesis), typeof(BoolExpr), typeof(CloseParenthesis), typeof(OpenCurlyBracket), typeof(Program), typeof(CloseCurlyBracket)]],
             #region bool
             [typeof(BoolExpr)] = [[typeof(BoolAndExpr), typeof(BoolOrExprTail)]],
@@ -74,7 +81,7 @@ namespace Compiler
                                         [typeof(EqualityOperator)],
                                         [typeof(NotEqualityOperator)]],
             [typeof(BoolLiteral)] = [[typeof(TrueKeyword)],
-                                     [typeof(FalseKeyword)]],
+                                     [typeof(FalseKeyword)]]
             #endregion
         };
 
@@ -247,7 +254,7 @@ namespace Compiler
             return this;
         }
 
-        public virtual ParseNode Hoist()
+        public virtual ParseNode? Hoist()
         {
             for (int i = 0; i < Children.Count; i++)
             {
@@ -456,6 +463,8 @@ namespace Compiler
     }
     #endregion
 
+    #region Flow control
+
     [OpensScope]
     public record class IfStatement : ParseNode
     {
@@ -483,6 +492,62 @@ namespace Compiler
             return this;
         }
     }
+
+    [OpensScope]
+    public record class IfntStatement : ParseNode
+    {
+        public override ParseNode Hoist()
+        {
+            base.Hoist();
+
+            Location = ((Children[0] as IToken)!.Row, (Children[0] as IToken)!.Column);
+
+            Children.RemoveAt(0); //remove the ifn't keyword
+            Children.RemoveAt(0); //remove the open parenthesis
+            Children.RemoveAt(1); //remove the close parenthesis
+            Children.RemoveAt(1); //remove the open curly bracket
+            if (Children.Count > 2)//if there is a body
+            {
+                Children.RemoveAt(2); //remove the close curly bracket
+            }
+            else
+            {
+                Children.RemoveAt(1); //remove the close curly bracket
+            }
+
+            (Children[0] as ParseNode)!.TypeExpected = "bool";//the condition should be a bool
+
+            return this;
+        }
+    }
+
+    [OpensScope]
+    public record class IfFollowUp : ParseNode
+    {
+        public override ParseNode? Hoist()
+        {
+            base.Hoist();
+
+            switch (Children.Count)
+            {
+                case 4://else { }
+                    var result = new ASTNode((Children[0] as IToken)!);
+                    result.Children.Add(Children[2]);//the body
+                    return result;
+
+                case 2://else if or else ifn't
+                    ParseNode result2 = (Children[1] as ParseNode)!;
+                    //result2.Children.AddRange(Children[1..]);
+                    return result2;
+
+                case 0://epsilon
+                    return null;
+            }
+
+            return this;
+        }
+    }
+
     [OpensScope]
     public record class WhileLoop : ParseNode
     {
@@ -510,6 +575,8 @@ namespace Compiler
             return this;
         }
     }
+
+    #endregion
     #region bool
     public record class BoolExpr : ParseNode;
     public record class BoolOrExprTail : ParseNode

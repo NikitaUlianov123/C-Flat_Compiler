@@ -7,6 +7,9 @@ variables
 print
 if
 while
+ifn't
+else
+else if
 
 
 Semantic Analyzed Features:
@@ -19,9 +22,6 @@ CST'd Features:
 
 
 Tokenized Features:
-ifn't
-else
-else if
 for
 
 

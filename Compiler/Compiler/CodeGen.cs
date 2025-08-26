@@ -150,7 +150,7 @@ namespace Compiler
                         if (astNode.Token is StringValue)
                         {
                             il.Emit(OpCodes.Ldstr, astNode.Token.Text);
-                            il.Emit(OpCodes.Call, typeof(Console).GetMethod("WriteLine", [typeof(string)]));
+                            il.Emit(OpCodes.Call, typeof(Console).GetMethod("WriteLine", [typeof(string)])!);
                         }
                         else if (astNode.Token is Identifier)
                         {
@@ -205,8 +205,12 @@ namespace Compiler
                     il.Emit(OpCodes.Ceq);//essentially !bool => bool == false
                     return;
                 }
-
-
+                else if (ast.Token is ElseKeyword)
+                {
+                    //body
+                    EmitMethodBody(il, (node.Children[0] as ParseNode)!, locals, symbols);
+                    return;
+                }
             }
             else if (node is VariableDeclaration decl)
             {
@@ -232,10 +236,46 @@ namespace Compiler
 
                 var ifFalseLabel = il.DefineLabel();
 
-                il.Emit(OpCodes.Brfalse, ifFalseLabel);
+                il.Emit(OpCodes.Brfalse, ifFalseLabel);//skip to followup if false
 
                 //body
                 EmitMethodBody(il, (node.Children[1] as ParseNode)!, locals, symbols);
+
+                var ifTrueLabel = il.DefineLabel();
+
+                il.Emit(OpCodes.Br, ifTrueLabel);//skip followup if true
+
+                il.MarkLabel(ifFalseLabel);
+
+                //followup
+                EmitMethodBody(il, (node.Children[2] as ParseNode)!, locals, symbols);
+
+                il.MarkLabel(ifTrueLabel);
+                return;
+            }
+            else if (node is IfntStatement)
+            {
+                //condition
+                EmitMethodBody(il, (node.Children[0] as ParseNode)!, locals, symbols);
+
+                var ifTrueLabel = il.DefineLabel();
+
+                il.Emit(OpCodes.Brtrue, ifTrueLabel);//skip to followup if true
+
+                //body
+                EmitMethodBody(il, (node.Children[1] as ParseNode)!, locals, symbols);
+
+                var ifFalseLabel = il.DefineLabel();
+
+                il.Emit(OpCodes.Br, ifFalseLabel);//skip followup if false
+
+                il.MarkLabel(ifTrueLabel);
+
+                if (node.Children.Count > 2)//there is a followup
+                {
+                    //followup
+                    EmitMethodBody(il, (node.Children[2] as ParseNode)!, locals, symbols);
+                }
 
                 il.MarkLabel(ifFalseLabel);
                 return;
@@ -246,14 +286,17 @@ namespace Compiler
                 var ifFalseLabel = il.DefineLabel();
 
                 il.MarkLabel(LoopLabel);
-                
+
                 //condition
                 EmitMethodBody(il, (node.Children[0] as ParseNode)!, locals, symbols);
-                
+
                 il.Emit(OpCodes.Brfalse, ifFalseLabel);
 
-                //body
-                EmitMethodBody(il, (node.Children[1] as ParseNode)!, locals, symbols);
+                if (node.Children.Count > 2)//there is a followup
+                {
+                    //body
+                    EmitMethodBody(il, (node.Children[1] as ParseNode)!, locals, symbols);
+                }
 
                 il.Emit(OpCodes.Br, LoopLabel);
 

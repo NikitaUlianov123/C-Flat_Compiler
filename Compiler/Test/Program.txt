@@ -1,23 +1,4 @@
-﻿int a = 200;
-
-if(a <= 37)
+﻿for(int i = 0; i < 14; i++)
 {
-	print("Hi");
-}
-else if(a < 37)
-{
-	print("Hey");
-}
-else
-{
-	print("Sup");
-}
-
-ifn't(a <= 37)
-{
-	print("Hello");
-}
-else ifn't(a != 2)
-{
-	print("Yay");
+	print(i);
 }

@@ -57,6 +57,39 @@ namespace TestProject
         }
 
         [TestMethod]
+        public void ElseTest()
+        {
+            bool success = Lexer.Lex("int a = 200;\n" +
+"if (a <= 37)\n" +
+"{\n" +
+"    print(\"Hi\");\n" +
+"}\n" +
+"else if (a < 42)\n" +
+"{\n" +
+"    print(\"Hey\");\n" +
+"}\n" +
+"else\n" +
+"{\n" +
+"    print(\"Sup\");\n" +
+"}\n" +
+"\n" +
+"ifn't(a <= 22)\n" +
+"{\n" +
+"    print(\"Hello\");\n" +
+"}\n" +
+"else ifn't(a != 2)\n" +
+"{\n" +
+"    print(\"Yay\");\n" +
+"}", out var result);
+            Assert.IsTrue(success);
+
+            ParseNode? twee;
+
+            var messages = Parser.Parse(result, out twee);
+            ;
+        }
+
+        [TestMethod]
         public void ScopeTest()
         {
             bool success;
@@ -65,7 +98,6 @@ namespace TestProject
             ParseNode? twee;
 
             List<string> messages;
-            SemanticAnalyzer analyzer;
             //#############################
 
 
