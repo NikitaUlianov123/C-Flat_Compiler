@@ -23,15 +23,17 @@ namespace Compiler
                                             [typeof(IfStatement)],
                                             [typeof(IfntStatement)],
                                             [typeof(WhileLoop)],
+                                            [typeof(ForLoop)],
                                             ],
 
             [typeof(PrintStatement)] = [[typeof(PrintKeyword), typeof(OpenParenthesis), typeof(StringValue), typeof(CloseParenthesis), typeof(Semicolon)],//print("hello")
                                         [typeof(PrintKeyword), typeof(OpenParenthesis), typeof(Identifier), typeof(CloseParenthesis), typeof(Semicolon)]],//print(a);
 
             [typeof(VariableExpr)] = [[typeof(VariableDeclaration)],
+                                      [typeof(VariableDeclarationAndAssignment)],
                                       [typeof(VariableAssignment)]],
-            [typeof(VariableDeclaration)] = [[typeof(Identifier), typeof(Identifier), typeof(Semicolon)],//int a;
-                                             [typeof(Identifier), typeof(Identifier), typeof(AssignmentOperator), typeof(VariableValue), typeof(Semicolon)]],//int a = 5;
+            [typeof(VariableDeclaration)] = [[typeof(Identifier), typeof(Identifier), typeof(Semicolon)]], //int a;
+            [typeof(VariableDeclarationAndAssignment)] = [[typeof(Identifier), typeof(Identifier), typeof(AssignmentOperator), typeof(VariableValue), typeof(Semicolon)]],//int a = 5;
             [typeof(VariableAssignment)] = [[typeof(Identifier), typeof(AssignmentOperator), typeof(VariableValue), typeof(Semicolon)]],
             [typeof(VariableValue)] = [[typeof(MathExpr)],
                                        [typeof(StringValue)],
@@ -61,6 +63,8 @@ namespace Compiler
                                     []],
 
             [typeof(WhileLoop)] = [[typeof(WhileKeyword), typeof(OpenParenthesis), typeof(BoolExpr), typeof(CloseParenthesis), typeof(OpenCurlyBracket), typeof(Program), typeof(CloseCurlyBracket)]],
+            [typeof(ForLoop)] = [[typeof(ForKeyword), typeof(OpenParenthesis), typeof(VariableAssignment), typeof(BoolExpr), typeof(Semicolon), typeof(VariableAssignment), typeof(CloseParenthesis), typeof(OpenCurlyBracket), typeof(Program), typeof(CloseCurlyBracket)],
+                                 [typeof(ForKeyword), typeof(OpenParenthesis), typeof(VariableDeclarationAndAssignment), typeof(BoolExpr), typeof(Semicolon), typeof(VariableAssignment), typeof(CloseParenthesis), typeof(OpenCurlyBracket), typeof(Program), typeof(CloseCurlyBracket)]],
             #region bool
             [typeof(BoolExpr)] = [[typeof(BoolAndExpr), typeof(BoolOrExprTail)]],
             [typeof(BoolOrExprTail)] = [[typeof(OrOperator), typeof(BoolAndExpr), typeof(BoolOrExprTail)],
@@ -368,6 +372,8 @@ namespace Compiler
             return this;
         }
     }
+    public record class VariableDeclarationAndAssignment : VariableDeclaration;
+
     public record class VariableValue : ParseNode;
 
     #region Maph
@@ -571,6 +577,36 @@ namespace Compiler
             }
 
             (Children[0] as ParseNode)!.TypeExpected = "bool";//the condition should be a bool
+
+            return this;
+        }
+    }
+
+    [OpensScope]
+    public record class ForLoop : ParseNode
+    {
+        public override ParseNode Hoist()
+        {
+            base.Hoist();
+
+            Location = ((Children[0] as IToken)!.Row, (Children[0] as IToken)!.Column);
+
+            Children.RemoveAt(0); //remove the for keyword
+            Children.RemoveAt(0); //remove the open parenthesis
+            Children.RemoveAt(2); //remove the semicolon
+            Children.RemoveAt(3); //remove the close parenthesis
+            Children.RemoveAt(3); //remove the open curly bracket
+
+            if (Children.Count > 4)//if there is a body
+            {
+                Children.RemoveAt(4); //remove the close curly bracket
+            }
+            else
+            {
+                Children.RemoveAt(3); //remove the close curly bracket
+            }
+
+            (Children[1] as ParseNode)!.TypeExpected = "bool";//the condition should be a bool
 
             return this;
         }

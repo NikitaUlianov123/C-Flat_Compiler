@@ -303,7 +303,33 @@ namespace Compiler
                 il.MarkLabel(ifFalseLabel);
                 return;
             }
+            else if (node is ForLoop)
+            {
+                EmitMethodBody(il, (node.Children[0] as ParseNode)!, locals, symbols);//variable init
 
+                var ConditionLabel = il.DefineLabel();
+                il.Emit(OpCodes.Br_S, ConditionLabel);//skip to condition first
+
+
+                var LoopLabel = il.DefineLabel();
+                il.MarkLabel(LoopLabel);
+
+
+                EmitMethodBody(il, (node.Children[3] as ParseNode)!, locals, symbols);//body
+
+
+                EmitMethodBody(il, (node.Children[2] as ParseNode)!, locals, symbols);//increment
+
+
+
+                il.MarkLabel(ConditionLabel);
+
+                EmitMethodBody(il, (node.Children[1] as ParseNode)!, locals, symbols);//condition
+                il.Emit(OpCodes.Brtrue, LoopLabel);//loop if condition true
+
+
+                return;
+            }
 
             for (int i = 0; i < node.Children.Count; i++)
             {

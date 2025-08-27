@@ -10,6 +10,7 @@ while
 ifn't
 else
 else if
+for (requires ; after increment)
 
 
 Semantic Analyzed Features:
@@ -22,7 +23,6 @@ CST'd Features:
 
 
 Tokenized Features:
-for
 
 
 ToDo Features:
