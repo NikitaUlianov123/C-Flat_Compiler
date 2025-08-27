@@ -26,6 +26,7 @@ namespace Compiler.Tokens
         {
             // Whitespace
             [@"^[\s]+"] = (text, row, column) => new WhiteSpace(text, row, column),
+            [@"^//[^\r\n]*"] = (text, row, column) => new Comment(text, row, column),
 
             // Keywords
             [@"^print\b"] = (text, row, column) => new PrintKeyword(text, row, column),
@@ -88,6 +89,7 @@ namespace Compiler.Tokens
     }
 
     public record WhiteSpace(string Text, int Row, int Column) : IToken;
+    public record Comment(string Text, int Row, int Column) : IToken;
 
     #region Keywords
     public record PrintKeyword(string Text, int Row, int Column) : IToken;

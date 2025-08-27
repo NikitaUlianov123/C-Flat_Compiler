@@ -190,7 +190,7 @@ namespace Compiler
         {
             for (int i = 0; i < tokens.Count; i++)
             {
-                if (tokens[i] is WhiteSpace)
+                if (tokens[i] is WhiteSpace or Comment)
                 {
                     tokens.RemoveAt(i);
                     i--;

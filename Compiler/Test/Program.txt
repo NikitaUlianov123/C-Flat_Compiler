@@ -1,9 +1,9 @@
 ﻿for(int i = 0; i < 14; i = i + 1;)
 {
 	print(i);
-	print("Hello");
+	print("Hello");//hi
 }
-
+//test
 int a = 2;
 for(a = 0; a < 14; a = a + 1;)
 {

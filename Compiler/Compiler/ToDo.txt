@@ -11,6 +11,7 @@ ifn't
 else
 else if
 for (requires ; after increment)
+comments (only single line "//")
 
 
 Semantic Analyzed Features:
@@ -26,7 +27,6 @@ Tokenized Features:
 
 
 ToDo Features:
-comments
 goto
 functions
 arrays
