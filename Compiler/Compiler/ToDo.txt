@@ -12,6 +12,7 @@ else
 else if
 for (requires ; after increment)
 comments (only single line "//")
+goto
 
 
 Semantic Analyzed Features:
@@ -27,7 +28,6 @@ Tokenized Features:
 
 
 ToDo Features:
-goto
 functions
 arrays
 type inference?(var)
