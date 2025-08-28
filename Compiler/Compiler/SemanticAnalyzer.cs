@@ -1,14 +1,5 @@
 ﻿using Compiler.Tokens;
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading.Tasks;
-using System.Xml.Linq;
-
 namespace Compiler
 {
     public class ScopeStack
@@ -61,16 +52,17 @@ namespace Compiler
 
         }
 
-        public List<string> Analyze(ParseNode node, out Dictionary<string, VarInfo> symbols)
+        public List<string> Analyze(ParseNode node, out Dictionary<string, VarInfo> symbols, out List<string> labels)
         {
             List<string> messages = [];
-            symbols = GetSymbols(node, messages, new(), []);
+            List<string> Labels = GetLabels(node, messages, []);
+            symbols = GetSymbols(node, messages, new(), [], Labels);
             ;
-
+            labels = Labels;
             return messages;
         }
 
-        public Dictionary<string, VarInfo> GetSymbols(ParseNode node, List<string> messages, ScopeStack scopes, Dictionary<string, VarInfo> symbols, int scope = 0)
+        public Dictionary<string, VarInfo> GetSymbols(ParseNode node, List<string> messages, ScopeStack scopes, Dictionary<string, VarInfo> symbols, List<string> labels, int scope = 0)
         {
             if (node is VariableDeclaration decl)
             {
@@ -100,11 +92,24 @@ namespace Compiler
 
                 CheckType(assignment, value.Type, messages, scopes);
             }
-            if (node is ASTNode ast && ast.Token is Identifier id)
+            if (node is GotoStatement @goto)
             {
-                if (!scopes.Contains(id.Text))
+                string destination = (@goto.Children[0] as ASTNode)!.Token.Text;
+                if (!labels.Contains(destination))
                 {
-                    messages.Add($"Variable '{id.Text}' not declared in scope. {id.Row}, {id.Column}");
+                    messages.Add($"Label '{destination}' not found. {@goto.Location.row}, {@goto.Location.column}");
+                }
+
+                return symbols;
+            }
+            if (node is ASTNode ast)
+            {
+                if (ast.Token is Identifier id)
+                {
+                    if (!scopes.Contains(id.Text))
+                    {
+                        messages.Add($"Variable '{id.Text}' not declared in scope. {id.Row}, {id.Column}");
+                    }
                 }
             }
 
@@ -121,7 +126,7 @@ namespace Compiler
                     scopes.PushScope();
                 }
 
-                GetSymbols((child as ParseNode)!, messages, scopes, symbols);
+                GetSymbols((child as ParseNode)!, messages, scopes, symbols, labels);
 
                 if (opensScope)
                 {
@@ -184,6 +189,28 @@ namespace Compiler
                     }
                 }
             }
+        }
+
+        private List<string> GetLabels(ParseNode node, List<string> messages, List<string> labels)
+        {
+            if (node is null) return labels;
+
+            if (node is ASTNode ast && ast.Token is Label label)
+            {
+                if (labels.Contains(label.Name))
+                {
+                    messages.Add($"Label '{label.Name}' already declared. {label.Row}, {label.Column}");
+                }
+                else
+                {
+                    labels.Add(label.Name);
+                }
+            }
+            foreach (var child in node.Children)
+            {
+                GetLabels((child as ParseNode)!, messages, labels);
+            }
+            return labels;
         }
     }
 }

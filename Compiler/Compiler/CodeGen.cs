@@ -5,6 +5,7 @@ using Microsoft.VisualBasic;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.NetworkInformation;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Reflection.Metadata;
@@ -59,8 +60,10 @@ namespace Compiler
             ["byte"] = typeof(byte),
         };
 
+        private static Dictionary<string, System.Reflection.Emit.Label> Labels = [];
 
-        public static string GenerateCode(ParseNode tree, Dictionary<string, VarInfo> symbols)
+
+        public static string GenerateCode(ParseNode tree, Dictionary<string, VarInfo> symbols, List<string> labels)
         {
             string assemblyName = "EmittedProgram";
             string fileName = assemblyName + ".exe";
@@ -84,6 +87,10 @@ namespace Compiler
             //methodBuilder
 
             var il = methodBuilder.GetILGenerator();
+
+
+            //Map labels
+            MapLabels(il, labels);
 
             //code go here
             EmitMethodBody(il, tree, [], symbols);
@@ -211,6 +218,10 @@ namespace Compiler
                     EmitMethodBody(il, (node.Children[0] as ParseNode)!, locals, symbols);
                     return;
                 }
+                else if (ast.Token is Tokens.Label label)
+                {
+                    il.MarkLabel(Labels[label.Name]);
+                }
             }
             else if (node is VariableDeclaration decl)
             {
@@ -247,8 +258,11 @@ namespace Compiler
 
                 il.MarkLabel(ifFalseLabel);
 
-                //followup
-                EmitMethodBody(il, (node.Children[2] as ParseNode)!, locals, symbols);
+                if (node.Children.Count > 2)//there is a followup
+                {
+                    //followup
+                    EmitMethodBody(il, (node.Children[2] as ParseNode)!, locals, symbols);
+                }
 
                 il.MarkLabel(ifTrueLabel);
                 return;
@@ -330,6 +344,11 @@ namespace Compiler
 
                 return;
             }
+            else if (node is GotoStatement)
+            {
+                il.Emit(OpCodes.Br_S, Labels[(node.Children[0] as ASTNode)!.Token.Text]);
+                return;
+            }
 
             for (int i = 0; i < node.Children.Count; i++)
             {
@@ -337,6 +356,14 @@ namespace Compiler
                 {
                     EmitMethodBody(il, pn, locals, symbols);
                 }
+            }
+        }
+
+        private static void MapLabels(ILGenerator il, List<string> labels)
+        {
+            foreach (var label in labels)
+            {
+                Labels.Add(label, il.DefineLabel());
             }
         }
     }

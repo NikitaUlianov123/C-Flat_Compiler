@@ -24,6 +24,8 @@ namespace Compiler
                                             [typeof(IfntStatement)],
                                             [typeof(WhileLoop)],
                                             [typeof(ForLoop)],
+                                            [typeof(Label)],
+                                            [typeof(GotoStatement)],
                                             ],
 
             [typeof(PrintStatement)] = [[typeof(PrintKeyword), typeof(OpenParenthesis), typeof(StringValue), typeof(CloseParenthesis), typeof(Semicolon)],//print("hello")
@@ -65,6 +67,10 @@ namespace Compiler
             [typeof(WhileLoop)] = [[typeof(WhileKeyword), typeof(OpenParenthesis), typeof(BoolExpr), typeof(CloseParenthesis), typeof(OpenCurlyBracket), typeof(Program), typeof(CloseCurlyBracket)]],
             [typeof(ForLoop)] = [[typeof(ForKeyword), typeof(OpenParenthesis), typeof(VariableAssignment), typeof(BoolExpr), typeof(Semicolon), typeof(VariableAssignment), typeof(CloseParenthesis), typeof(OpenCurlyBracket), typeof(Program), typeof(CloseCurlyBracket)],
                                  [typeof(ForKeyword), typeof(OpenParenthesis), typeof(VariableDeclarationAndAssignment), typeof(BoolExpr), typeof(Semicolon), typeof(VariableAssignment), typeof(CloseParenthesis), typeof(OpenCurlyBracket), typeof(Program), typeof(CloseCurlyBracket)]],
+            
+            [typeof(GotoStatement)] = [[typeof(GotoKeyword), typeof(Identifier), typeof(Semicolon)]],
+            
+
             #region bool
             [typeof(BoolExpr)] = [[typeof(BoolAndExpr), typeof(BoolOrExprTail)]],
             [typeof(BoolOrExprTail)] = [[typeof(OrOperator), typeof(BoolAndExpr), typeof(BoolOrExprTail)],
@@ -612,6 +618,22 @@ namespace Compiler
         }
     }
 
+    public record class GotoStatement : ParseNode
+    {
+        public override ParseNode Hoist()
+        {
+            base.Hoist();
+
+            Location = ((Children[0] as IToken)!.Row, (Children[0] as IToken)!.Column);
+
+            Children.RemoveAt(0); //remove the keyword
+            Children.RemoveAt(1); //remove the semicolon
+
+            Children[0] = new ASTNode((Children[0] as IToken)!);//the label to go to
+
+            return this;
+        }
+    }
     #endregion
     #region bool
     public record class BoolExpr : ParseNode;

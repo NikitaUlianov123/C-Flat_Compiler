@@ -27,11 +27,11 @@ namespace Test
 
 
             analyzer = new SemanticAnalyzer();
-            messages = analyzer.Analyze(twee!, out var symbols);
+            messages = analyzer.Analyze(twee!, out var symbols, out var labels);
             
             if (messages.Count > 0) throw new Exception("Did not pass analysis.");
 
-            CodeGen.GenerateCode(twee!, symbols);
+            CodeGen.GenerateCode(twee!, symbols, labels);
 
             ;
         }

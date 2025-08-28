@@ -37,6 +37,10 @@ namespace Compiler.Tokens
             [@"^for\b"] = (text, row, column) => new ForKeyword(text, row, column),
             [@"^true\b"] = (text, row, column) => new TrueKeyword(text, row, column),
             [@"^false\b"] = (text, row, column) => new FalseKeyword(text, row, column),
+            [@"^goto\b"] = (text, row, column) => new GotoKeyword(text, row, column),
+
+            //Labels
+            [@"^[A-Za-z_][A-Za-z0-9_]*:"] = (text, row, column) => new Label(text, row, column),
 
             // Punctuation
             [@"^\("] = (text, row, column) => new OpenParenthesis(text, row, column),
@@ -100,7 +104,12 @@ namespace Compiler.Tokens
     public record ForKeyword(string Text, int Row, int Column) : IToken;
     public record TrueKeyword(string Text, int Row, int Column) : IToken;
     public record FalseKeyword(string Text, int Row, int Column) : IToken;
+    public record GotoKeyword(string Text, int Row, int Column) : IToken;
     #endregion
+    public record Label(string Text, int Row, int Column) : IToken
+    { 
+        public string Name => Text[..^1];
+    }
 
     #region Punctuation
     public record OpenParenthesis(string Text, int Row, int Column) : IToken;
