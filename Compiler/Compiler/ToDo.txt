@@ -19,6 +19,7 @@ Semantic Analyzed Features:
 
 
 AST'd Features:
+void functions
 
 
 CST'd Features:
@@ -28,7 +29,8 @@ Tokenized Features:
 
 
 ToDo Features:
-functions
+function parameters
+return functions
 arrays
 type inference?(var)
 classes

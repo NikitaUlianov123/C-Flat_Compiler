@@ -344,10 +344,9 @@ namespace Compiler
 
                 return;
             }
-            else if (node is GotoStatement)
+            else if (node is GotoStatement @goto)
             {
-                il.Emit(OpCodes.Br_S, Labels[(node.Children[0] as ASTNode)!.Token.Text]);
-                return;
+                il.Emit(OpCodes.Br_S, Labels[@goto.LabelName]);
             }
 
             for (int i = 0; i < node.Children.Count; i++)

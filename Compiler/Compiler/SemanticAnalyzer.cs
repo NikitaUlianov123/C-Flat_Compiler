@@ -2,20 +2,43 @@
 
 namespace Compiler
 {
+    public struct VarInfo
+    {
+        public string Type;
+        public VarInfo(string type)
+        {
+            Type = type;
+        }
+    }
+    public struct FuncInfo
+    {
+        public string ReturnType;
+        public string Name;
+        public List<VarInfo> Parameters;
+
+        public FuncInfo(string returnType, string name, List<VarInfo> parameters)
+        {
+            ReturnType = returnType;
+            Name = name;
+            Parameters = parameters;
+        }
+    }
     public class ScopeStack
     {
-        private List<Dictionary<string, VarInfo>> scopes;
+        private List<Dictionary<string, VarInfo>> variables;
+        private List<Dictionary<string, FuncInfo>> functions;
 
         public ScopeStack()
         {
-            scopes = [[]];
+            variables = [[]];
+            functions = [[]];
         }
 
-        public bool TryGetValue(string name, out VarInfo value)
+        public bool TryGetVar(string name, out VarInfo value)
         {
-            for (int i = scopes.Count - 1; i >= 0; i--)
+            for (int i = variables.Count - 1; i >= 0; i--)
             {
-                if (scopes[i].TryGetValue(name, out value))
+                if (variables[i].TryGetValue(name, out value))
                 {
                     return true;
                 }
@@ -24,24 +47,38 @@ namespace Compiler
             return false;
         }
 
-        public bool Contains(string name)
+        public bool TryGetFunc(string name, out FuncInfo value)
         {
-            return scopes.Any(scope => scope.ContainsKey(name));
+            for (int i = functions.Count - 1; i >= 0; i--)
+            {
+                if (functions[i].TryGetValue(name, out value))
+                {
+                    return true;
+                }
+            }
+            value = default;
+            return false;
         }
 
-        public void Push(string symbol, VarInfo info) => scopes.Last().Add(symbol, info);
-        public void Push(string symbol, VarInfo info, int scope) => scopes[scope].Add(symbol, info);
+        public bool ContainsVar(string name) => variables.Any(scope => scope.ContainsKey(name));
+        public bool ContainsFunc(string name) => functions.Any(scope => scope.ContainsKey(name));
 
-        public void PushScope() => scopes.Add([]);
+        public void PushVar(string symbol, VarInfo info) => variables.Last().Add(symbol, info);
+        public void PushVar(string symbol, VarInfo info, int scope) => variables[scope].Add(symbol, info);
 
-        public void PopScope() => scopes.RemoveAt(scopes.Count - 1);
-    }
-    public struct VarInfo
-    {
-        public string Type;
-        public VarInfo(string type)
+        public void PushFunc(string symbol, FuncInfo info) => functions.Last().Add(symbol, info);
+        public void Pushfunc(string symbol, FuncInfo info, int scope) => functions[scope].Add(symbol, info);
+
+        public void PushScope()
         {
-            Type = type;
+            variables.Add([]);
+            functions.Add([]);
+        }
+
+        public void PopScope()
+        {
+            variables.RemoveAt(variables.Count - 1);
+            functions.RemoveAt(functions.Count - 1);
         }
     }
 
@@ -64,15 +101,29 @@ namespace Compiler
 
         public Dictionary<string, VarInfo> GetSymbols(ParseNode node, List<string> messages, ScopeStack scopes, Dictionary<string, VarInfo> symbols, List<string> labels, int scope = 0)
         {
-            if (node is VariableDeclaration decl)
+            if (node is FunctionDeclaration funcy)
             {
-                if (scopes.TryGetValue(decl.Name, out VarInfo value))
+                if (scopes.TryGetFunc(funcy.Name, out _))
+                {
+                    messages.Add($"Variable '{funcy.Name}' already declared in scope. {funcy.Location.row}, {funcy.Location.column}");
+                }
+                else
+                {
+                    scopes.PushVar(funcy.Name, new VarInfo(funcy.ReturnType));
+                    symbols.Add(funcy.Name, new VarInfo(funcy.ReturnType));
+                }
+
+                //Todo: check return type
+            }
+            else if (node is VariableDeclaration decl)
+            {
+                if (scopes.TryGetVar(decl.Name, out _))
                 {
                     messages.Add($"Variable '{decl.Name}' already declared in scope. {decl.Location.row}, {decl.Location.column}");
                 }
                 else
                 {
-                    scopes.Push(decl.Name, new VarInfo(decl.Type));
+                    scopes.PushVar(decl.Name, new VarInfo(decl.Type));
                     symbols.Add(decl.Name, new VarInfo(decl.Type));
                 }
 
@@ -83,30 +134,31 @@ namespace Compiler
                     CheckType(decl, decl.Type, messages, scopes);
                 }
             }
-            if (node is VariableAssignment assignment)
+            else if (node is VariableAssignment assignment)
             {
-                if (!scopes.TryGetValue(assignment.Name, out VarInfo value))
+                if (!scopes.TryGetVar(assignment.Name, out VarInfo value))
                 {
                     messages.Add($"Variable '{assignment.Name}' not declared in scope. {assignment.Location.row}, {assignment.Location.column}");
                 }
 
                 CheckType(assignment, value.Type, messages, scopes);
             }
-            if (node is GotoStatement @goto)
+            else if (node is GotoStatement @goto)
             {
-                string destination = (@goto.Children[0] as ASTNode)!.Token.Text;
-                if (!labels.Contains(destination))
+                if (!labels.Contains(@goto.LabelName))
                 {
-                    messages.Add($"Label '{destination}' not found. {@goto.Location.row}, {@goto.Location.column}");
+                    messages.Add($"Label '{@goto.LabelName}' not found. {@goto.Location.row}, {@goto.Location.column}");
                 }
-
-                return symbols;
             }
-            if (node is ASTNode ast)
+            else if (node is FunctionCall call)
+            { 
+                
+            }
+            else if (node is ASTNode ast)
             {
                 if (ast.Token is Identifier id)
                 {
-                    if (!scopes.Contains(id.Text))
+                    if (!scopes.ContainsVar(id.Text))
                     {
                         messages.Add($"Variable '{id.Text}' not declared in scope. {id.Row}, {id.Column}");
                     }
@@ -143,7 +195,7 @@ namespace Compiler
             {
                 if (ast.Token is Identifier id)
                 {
-                    if (scopes.TryGetValue(id.Text, out var info))
+                    if (scopes.TryGetVar(id.Text, out var info))
                     {
                         if (info.Type != type)
                         {

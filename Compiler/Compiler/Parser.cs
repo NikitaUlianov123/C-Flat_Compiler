@@ -57,6 +57,7 @@ namespace Compiler
                                     [typeof(Identifier)]],
             #endregion
 
+            #region Flow control
             [typeof(IfStatement)] = [[typeof(IfKeyword), typeof(OpenParenthesis), typeof(BoolExpr), typeof(CloseParenthesis), typeof(OpenCurlyBracket), typeof(Program), typeof(CloseCurlyBracket), typeof(IfFollowUp)]],
             [typeof(IfntStatement)] = [[typeof(IfntKeyword), typeof(OpenParenthesis), typeof(BoolExpr), typeof(CloseParenthesis), typeof(OpenCurlyBracket), typeof(Program), typeof(CloseCurlyBracket), typeof(IfFollowUp)]],
             [typeof(IfFollowUp)] = [[typeof(ElseKeyword), typeof(OpenCurlyBracket), typeof(Program), typeof(CloseCurlyBracket)],
@@ -67,9 +68,13 @@ namespace Compiler
             [typeof(WhileLoop)] = [[typeof(WhileKeyword), typeof(OpenParenthesis), typeof(BoolExpr), typeof(CloseParenthesis), typeof(OpenCurlyBracket), typeof(Program), typeof(CloseCurlyBracket)]],
             [typeof(ForLoop)] = [[typeof(ForKeyword), typeof(OpenParenthesis), typeof(VariableAssignment), typeof(BoolExpr), typeof(Semicolon), typeof(VariableAssignment), typeof(CloseParenthesis), typeof(OpenCurlyBracket), typeof(Program), typeof(CloseCurlyBracket)],
                                  [typeof(ForKeyword), typeof(OpenParenthesis), typeof(VariableDeclarationAndAssignment), typeof(BoolExpr), typeof(Semicolon), typeof(VariableAssignment), typeof(CloseParenthesis), typeof(OpenCurlyBracket), typeof(Program), typeof(CloseCurlyBracket)]],
-            
+
             [typeof(GotoStatement)] = [[typeof(GotoKeyword), typeof(Identifier), typeof(Semicolon)]],
+            #endregion
+
+            [typeof(FunctionDeclaration)] = [[typeof(Identifier), typeof(Identifier), typeof(OpenParenthesis), typeof(CloseParenthesis), typeof(OpenCurlyBracket), typeof(Program), typeof(CloseCurlyBracket)]],//void Name(){code}
             
+            [typeof(FunctionCall)] = [[typeof(Identifier), typeof(OpenParenthesis), typeof(CloseParenthesis), typeof(Semicolon)]],//Name();
 
             #region bool
             [typeof(BoolExpr)] = [[typeof(BoolAndExpr), typeof(BoolOrExprTail)]],
@@ -303,7 +308,7 @@ namespace Compiler
 
     public record class Program() : ParseNode;
     public record class PossibleStatements : ParseNode;
-    
+
     public record class PrintStatement : ParseNode
     {
         public override ParseNode Hoist()
@@ -318,7 +323,7 @@ namespace Compiler
                 result.Children.Add(new ASTNode((Children[2] as IToken)!, "string"));
             }
             else
-            { 
+            {
                 result.Children.Add(new ASTNode((Children[2] as IToken)!));
             }
             return result;
@@ -398,9 +403,9 @@ namespace Compiler
             {
                 result = (Children[1] as ParseNode)!;
             }
-            
+
             result.Children.Insert(0, Children[0]);
-            
+
             return result;
         }
     }
@@ -495,7 +500,7 @@ namespace Compiler
                 Children.RemoveAt(2); //remove the close curly bracket
             }
             else
-            { 
+            {
                 Children.RemoveAt(1); //remove the close curly bracket
             }
 
@@ -620,21 +625,73 @@ namespace Compiler
 
     public record class GotoStatement : ParseNode
     {
+        public string LabelName { get; private set; } = "";
         public override ParseNode Hoist()
         {
             base.Hoist();
 
             Location = ((Children[0] as IToken)!.Row, (Children[0] as IToken)!.Column);
 
-            Children.RemoveAt(0); //remove the keyword
-            Children.RemoveAt(1); //remove the semicolon
+            LabelName = (Children[1] as IToken)!.Text;
 
-            Children[0] = new ASTNode((Children[0] as IToken)!);//the label to go to
+            Children.Clear();
 
             return this;
         }
     }
     #endregion
+
+    [OpensScope]
+    public record class FunctionDeclaration : ParseNode
+    {
+        public string ReturnType { get; private set; } = "";
+        public string Name { get; private set; } = "";
+
+        public override ParseNode Hoist()
+        {
+            base.Hoist();
+
+            Location = ((Children[0] as IToken)!.Row, (Children[0] as IToken)!.Column);
+
+            ReturnType = (Children[0] as IToken)!.Text;
+            Name = (Children[1] as IToken)!.Text;
+
+            Children.RemoveAt(2); //remove the open parenthesis
+            Children.RemoveAt(3); //remove the close parenthesis
+            Children.RemoveAt(4); //remove the open curly bracket
+            if (Children.Count > 6)//if there is a body
+            {
+                Children.RemoveAt(6); //remove the close curly bracket
+            }
+            else
+            {
+                Children.RemoveAt(5); //remove the close curly bracket
+            }
+
+            return this;
+        }
+    }
+
+    public record class FunctionCall : ParseNode
+    {
+        public string Name { get; private set; } = "";
+
+        public override ParseNode Hoist()
+        {
+            base.Hoist();
+
+            Location = ((Children[0] as IToken)!.Row, (Children[0] as IToken)!.Column);
+
+            Name = (Children[0] as IToken)!.Text;
+
+            Children.RemoveAt(1); //remove the open parenthesis
+            Children.RemoveAt(1); //remove the close parenthesis
+            Children.RemoveAt(1); //remove the semicolon
+
+            return this;
+        }
+    }
+
     #region bool
     public record class BoolExpr : ParseNode;
     public record class BoolOrExprTail : ParseNode
