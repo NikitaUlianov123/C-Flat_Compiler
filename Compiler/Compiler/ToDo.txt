@@ -16,10 +16,10 @@ goto
 
 
 Semantic Analyzed Features:
+void functions
 
 
 AST'd Features:
-void functions
 
 
 CST'd Features:

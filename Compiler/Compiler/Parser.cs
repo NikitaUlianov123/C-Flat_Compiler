@@ -26,6 +26,8 @@ namespace Compiler
                                             [typeof(ForLoop)],
                                             [typeof(Label)],
                                             [typeof(GotoStatement)],
+                                            [typeof(FunctionDeclaration)],
+                                            [typeof(FunctionCall)],
                                             ],
 
             [typeof(PrintStatement)] = [[typeof(PrintKeyword), typeof(OpenParenthesis), typeof(StringValue), typeof(CloseParenthesis), typeof(Semicolon)],//print("hello")
@@ -656,17 +658,23 @@ namespace Compiler
             ReturnType = (Children[0] as IToken)!.Text;
             Name = (Children[1] as IToken)!.Text;
 
-            Children.RemoveAt(2); //remove the open parenthesis
-            Children.RemoveAt(3); //remove the close parenthesis
-            Children.RemoveAt(4); //remove the open curly bracket
-            if (Children.Count > 6)//if there is a body
+            int curr = 0;
+            Children.RemoveAt(curr); //remove the type
+            Children.RemoveAt(curr); //remove the name
+            Children.RemoveAt(curr); //remove the open parenthesis
+
+            if ((Children[curr] as IToken) is not CloseParenthesis)//there are params
             {
-                Children.RemoveAt(6); //remove the close curly bracket
+                curr++;//keep params
             }
-            else
+            Children.RemoveAt(curr); //remove the close parenthesis
+            Children.RemoveAt(curr); //remove the open curly bracket
+
+            if ((Children[curr] as IToken) is not CloseParenthesis)//if there is a body
             {
-                Children.RemoveAt(5); //remove the close curly bracket
+                curr++;
             }
+            Children.RemoveAt(curr); //remove the close curly bracket
 
             return this;
         }
@@ -684,10 +692,20 @@ namespace Compiler
 
             Name = (Children[0] as IToken)!.Text;
 
-            Children.RemoveAt(1); //remove the open parenthesis
-            Children.RemoveAt(1); //remove the close parenthesis
-            Children.RemoveAt(1); //remove the semicolon
-
+            Children.RemoveAt(0); //remove the name
+            Children.RemoveAt(0); //remove the open parenthesis
+            if ((Children[0] as IToken) is not CloseParenthesis)//there are args
+            {
+                //keep args
+                Children.RemoveAt(1); //remove the close parenthesis
+                Children.RemoveAt(1); //remove the semicolon
+            }
+            else
+            {
+                Children.RemoveAt(0); //remove the close parenthesis
+                Children.RemoveAt(0); //remove the semicolon
+            }
+            
             return this;
         }
     }

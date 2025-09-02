@@ -13,13 +13,11 @@ namespace Compiler
     public struct FuncInfo
     {
         public string ReturnType;
-        public string Name;
         public List<VarInfo> Parameters;
 
-        public FuncInfo(string returnType, string name, List<VarInfo> parameters)
+        public FuncInfo(string returnType, List<VarInfo> parameters)
         {
             ReturnType = returnType;
-            Name = name;
             Parameters = parameters;
         }
     }
@@ -66,7 +64,8 @@ namespace Compiler
         public void PushVar(string symbol, VarInfo info) => variables.Last().Add(symbol, info);
         public void PushVar(string symbol, VarInfo info, int scope) => variables[scope].Add(symbol, info);
 
-        public void PushFunc(string symbol, FuncInfo info) => functions.Last().Add(symbol, info);
+        public void PushFunc(string symbol, FuncInfo info) => functions[^2].Add(symbol, info);
+        //^2 because we want to add functions to the scope they're declared in, not the inside scope of the function
         public void Pushfunc(string symbol, FuncInfo info, int scope) => functions[scope].Add(symbol, info);
 
         public void PushScope()
@@ -109,8 +108,7 @@ namespace Compiler
                 }
                 else
                 {
-                    scopes.PushVar(funcy.Name, new VarInfo(funcy.ReturnType));
-                    symbols.Add(funcy.Name, new VarInfo(funcy.ReturnType));
+                    scopes.PushFunc(funcy.Name, new FuncInfo(funcy.ReturnType, []));
                 }
 
                 //Todo: check return type
@@ -151,8 +149,16 @@ namespace Compiler
                 }
             }
             else if (node is FunctionCall call)
-            { 
-                
+            {
+                if (!scopes.TryGetFunc(call.Name, out FuncInfo func))
+                {
+                    messages.Add($"Function '{call.Name}' not found. {call.Location.row}, {call.Location.column}");
+                }
+                else
+                {
+                    //Todo: type check parameters
+                    return symbols;//skip type checking for now
+                }
             }
             else if (node is ASTNode ast)
             {

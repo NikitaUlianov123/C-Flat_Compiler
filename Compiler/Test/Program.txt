@@ -1,11 +1,7 @@
-﻿int i = 0;
-LoopLabel:
-print("Loopy");
-if(i > 5)
+﻿void Foo()
 {
-	goto EndLoop;
+	print("Bar");
 }
-goto LoopLabel;
 
-EndLoop:
-print("Done");
+int x = 5;
+Foo();
