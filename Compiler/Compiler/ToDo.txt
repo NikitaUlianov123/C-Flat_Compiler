@@ -13,10 +13,10 @@ else if
 for (requires ; after increment)
 comments (only single line "//")
 goto
+void functions
 
 
 Semantic Analyzed Features:
-void functions
 
 
 AST'd Features:
