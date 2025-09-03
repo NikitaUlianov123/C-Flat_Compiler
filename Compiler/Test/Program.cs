@@ -34,6 +34,7 @@ namespace Test
             CodeGen.GenerateCode(twee!, symbols, labels);
 
             ;
+            //ildasm D:\Documents\Github\C-Flat_Compiler\Compiler\Test\bin\Debug\net9.0\EmittedProgram.exe /out:D:\Documents\Github\C-Flat_Compiler\Compiler\Test\bin\Debug\net9.0\full.il
         }
 
         private static void LogTree(ParseNode node, int depth)
