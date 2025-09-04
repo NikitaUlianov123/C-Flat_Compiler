@@ -14,6 +14,7 @@ for (requires ; after increment)
 comments (only single line "//")
 goto
 void functions
+while, else
 
 
 Semantic Analyzed Features:
@@ -27,8 +28,9 @@ CST'd Features:
 
 Tokenized Features:
 
-
 ToDo Features:
+++ and --
+go away statement
 function parameters
 return functions
 arrays

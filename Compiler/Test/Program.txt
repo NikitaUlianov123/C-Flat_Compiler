@@ -1,7 +1,10 @@
-﻿void Foo()
-{
-	print("Bar");
-}
+﻿int x = 5;
 
-int x = 5;
-Foo();
+while(x < 3)
+{
+	x = x - 1;
+}
+else
+{
+	print("done");
+}

@@ -67,7 +67,10 @@ namespace Compiler
                                     [typeof(ElseKeyword), typeof(IfntStatement)],
                                     []],
 
-            [typeof(WhileLoop)] = [[typeof(WhileKeyword), typeof(OpenParenthesis), typeof(BoolExpr), typeof(CloseParenthesis), typeof(OpenCurlyBracket), typeof(Program), typeof(CloseCurlyBracket)]],
+            [typeof(WhileLoop)] = [[typeof(WhileKeyword), typeof(OpenParenthesis), typeof(BoolExpr), typeof(CloseParenthesis), typeof(OpenCurlyBracket), typeof(Program), typeof(CloseCurlyBracket), typeof(WhileFollowUp)]],
+            [typeof(WhileFollowUp)] = [[typeof(ElseKeyword), typeof(OpenCurlyBracket), typeof(Program), typeof(CloseCurlyBracket)],
+                                    []],
+
             [typeof(ForLoop)] = [[typeof(ForKeyword), typeof(OpenParenthesis), typeof(VariableAssignment), typeof(BoolExpr), typeof(Semicolon), typeof(VariableAssignment), typeof(CloseParenthesis), typeof(OpenCurlyBracket), typeof(Program), typeof(CloseCurlyBracket)],
                                  [typeof(ForKeyword), typeof(OpenParenthesis), typeof(VariableDeclarationAndAssignment), typeof(BoolExpr), typeof(Semicolon), typeof(VariableAssignment), typeof(CloseParenthesis), typeof(OpenCurlyBracket), typeof(Program), typeof(CloseCurlyBracket)]],
 
@@ -75,7 +78,7 @@ namespace Compiler
             #endregion
 
             [typeof(FunctionDeclaration)] = [[typeof(Identifier), typeof(Identifier), typeof(OpenParenthesis), typeof(CloseParenthesis), typeof(OpenCurlyBracket), typeof(Program), typeof(CloseCurlyBracket)]],//void Name(){code}
-            
+
             [typeof(FunctionCall)] = [[typeof(Identifier), typeof(OpenParenthesis), typeof(CloseParenthesis), typeof(Semicolon)]],//Name();
 
             #region bool
@@ -218,7 +221,7 @@ namespace Compiler
 
     public record class ParseNode
     {
-        public List<object> Children = [];//i know this is bad, it's (hopefully) temporary
+        public virtual List<object> Children { get; protected set; } = [];
         public virtual (int row, int column) Location { get; protected set; }
         public string TypeExpected { get; set; } = "";
         public virtual bool IsColapsable
@@ -487,26 +490,34 @@ namespace Compiler
     [OpensScope]
     public record class IfStatement : ParseNode
     {
+        public ParseNode? Condition { get; private set; }
+        public ParseNode? Body { get; private set; }
+        public ParseNode? Followup { get; private set; }
+
         public override ParseNode Hoist()
         {
             base.Hoist();
 
             Location = ((Children[0] as IToken)!.Row, (Children[0] as IToken)!.Column);
 
-            Children.RemoveAt(0); //remove the if keyword
-            Children.RemoveAt(0); //remove the open parenthesis
-            Children.RemoveAt(1); //remove the close parenthesis
-            Children.RemoveAt(1); //remove the open curly bracket
-            if (Children.Count > 2)//if there is a body
+            Condition = Children[2] as ParseNode;
+
+            if (Children[5] is not CloseCurlyBracket)//if there is a body
             {
-                Children.RemoveAt(2); //remove the close curly bracket
+                Body = Children[5] as ParseNode;
             }
             else
             {
-                Children.RemoveAt(1); //remove the close curly bracket
+                Body = null;
             }
 
-            (Children[0] as ParseNode)!.TypeExpected = "bool";//the condition should be a bool
+            Followup = Children[^1] as ParseNode;
+
+            Condition!.TypeExpected = "bool";//the condition should be a bool
+
+#pragma warning disable CS8604 // Possible null reference argument.
+            Children = new List<object> { Condition, Body, Followup }.Where(x => x != null).ToList();
+#pragma warning restore CS8604 // Possible null reference argument.
 
             return this;
         }
@@ -515,26 +526,33 @@ namespace Compiler
     [OpensScope]
     public record class IfntStatement : ParseNode
     {
+        public ParseNode? Condition { get; private set; }
+        public ParseNode? Body { get; private set; }
+        public ParseNode? Followup { get; private set; }
+
+
         public override ParseNode Hoist()
         {
             base.Hoist();
 
-            Location = ((Children[0] as IToken)!.Row, (Children[0] as IToken)!.Column);
+            Condition = Children[2] as ParseNode;
 
-            Children.RemoveAt(0); //remove the ifn't keyword
-            Children.RemoveAt(0); //remove the open parenthesis
-            Children.RemoveAt(1); //remove the close parenthesis
-            Children.RemoveAt(1); //remove the open curly bracket
-            if (Children.Count > 2)//if there is a body
+            if (Children[5] is not CloseCurlyBracket)//if there is a body
             {
-                Children.RemoveAt(2); //remove the close curly bracket
+                Body = Children[5] as ParseNode;
             }
             else
             {
-                Children.RemoveAt(1); //remove the close curly bracket
+                Body = null;
             }
 
-            (Children[0] as ParseNode)!.TypeExpected = "bool";//the condition should be a bool
+            Followup = Children[^1] as ParseNode;
+
+            Condition!.TypeExpected = "bool";//the condition should be a bool
+
+#pragma warning disable CS8604 // Possible null reference argument.
+            Children = new List<object> { Condition, Body, Followup }.Where(x => x != null).ToList();
+#pragma warning restore CS8604 // Possible null reference argument.
 
             return this;
         }
@@ -570,56 +588,80 @@ namespace Compiler
     [OpensScope]
     public record class WhileLoop : ParseNode
     {
+        public ParseNode? Condition { get; private set; }
+        public ParseNode? Body { get; private set; }
+        public ParseNode? Followup { get; private set; }
+
         public override ParseNode Hoist()
         {
             base.Hoist();
 
             Location = ((Children[0] as IToken)!.Row, (Children[0] as IToken)!.Column);
 
-            Children.RemoveAt(0); //remove the while keyword
-            Children.RemoveAt(0); //remove the open parenthesis
-            Children.RemoveAt(1); //remove the close parenthesis
-            Children.RemoveAt(1); //remove the open curly bracket
-            if (Children.Count > 2)//if there is a body
+            Condition = Children[2] as ParseNode;
+
+            if (Children[5] is not CloseCurlyBracket)//if there is a body
             {
-                Children.RemoveAt(2); //remove the close curly bracket
+                Body = Children[5] as ParseNode;
             }
             else
             {
-                Children.RemoveAt(1); //remove the close curly bracket
+                Body = null;
             }
 
-            (Children[0] as ParseNode)!.TypeExpected = "bool";//the condition should be a bool
+            Followup = Children[^1] as ParseNode;
+
+            Condition!.TypeExpected = "bool";//the condition should be a bool
+
+#pragma warning disable CS8604 // Possible null reference argument.
+            Children = new List<object> { Condition, Body, Followup }.Where(x => x != null).ToList();
+#pragma warning restore CS8604 // Possible null reference argument.
 
             return this;
         }
     }
 
     [OpensScope]
+    public record class WhileFollowUp : ParseNode
+    {
+        public override ParseNode? Hoist()
+        {
+            base.Hoist();
+
+            var result = new ASTNode((Children[0] as IToken)!);
+            result.Children.Add(Children[2]);//the body
+            return result;
+        }
+    }
+
+    [OpensScope]
     public record class ForLoop : ParseNode
     {
+        public ParseNode? Initialization { get; private set; }
+        public ParseNode? Condition { get; private set; }
+        public ParseNode? Followup { get; private set; }
+        public ParseNode? Body { get; private set; }
+
         public override ParseNode Hoist()
         {
             base.Hoist();
 
             Location = ((Children[0] as IToken)!.Row, (Children[0] as IToken)!.Column);
 
-            Children.RemoveAt(0); //remove the for keyword
-            Children.RemoveAt(0); //remove the open parenthesis
-            Children.RemoveAt(2); //remove the semicolon
-            Children.RemoveAt(3); //remove the close parenthesis
-            Children.RemoveAt(3); //remove the open curly bracket
+            Initialization = Children[2] as ParseNode;
+            Condition = Children[3] as ParseNode;
+            Followup = Children[5] as ParseNode;
 
-            if (Children.Count > 4)//if there is a body
+            if (Children[8] is not CloseCurlyBracket)//if there is a body
             {
-                Children.RemoveAt(4); //remove the close curly bracket
-            }
-            else
-            {
-                Children.RemoveAt(3); //remove the close curly bracket
+                Body = Children[8] as ParseNode;
             }
 
-            (Children[1] as ParseNode)!.TypeExpected = "bool";//the condition should be a bool
+            Condition!.TypeExpected = "bool";//the condition should be a bool
+
+#pragma warning disable CS8604 // Possible null reference argument.
+            Children = new List<object> { Initialization, Condition, Followup, Body }.Where(x => x != null).ToList();
+#pragma warning restore CS8604 // Possible null reference argument.
 
             return this;
         }
@@ -705,7 +747,7 @@ namespace Compiler
                 Children.RemoveAt(0); //remove the close parenthesis
                 Children.RemoveAt(0); //remove the semicolon
             }
-            
+
             return this;
         }
     }
@@ -765,7 +807,7 @@ namespace Compiler
             base.Hoist();
 
             if (Children[0] is NotOperator || (Children[0] is ASTNode node && node.Token is NotOperator))
-            { 
+            {
                 var result = Children[0] as ParseNode ?? new ASTNode((Children[0] as NotOperator)!);
 
                 result.Children.Add(Children[1]);//the stuff being notted
@@ -793,7 +835,7 @@ namespace Compiler
                 result = new ASTNode((Children[1] as IToken)!);
             }
             else
-            { 
+            {
                 result = (Children[1] as ParseNode)!;
             }
             result.Children.Add(Children[0]);//the left side
