@@ -145,7 +145,11 @@ namespace Compiler.Tokens
     #endregion
 
     #region Values
-    public record StringValue(string Text, int Row, int Column) : IToken;
+    public record StringValue(string Text, int Row, int Column) : IToken
+    { 
+        public string Value => Text[1..^1];
+    }
+
     [DebuggerDisplay("Numeric value: {Text}")]
     public record NumericValue(string Text, int Row, int Column) : IToken
     {

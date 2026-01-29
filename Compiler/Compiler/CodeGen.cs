@@ -63,9 +63,11 @@ namespace Compiler
         private static Dictionary<string, System.Reflection.Emit.Label> Labels = [];
 
 
-        public static string GenerateCode(ParseNode tree, Dictionary<string, VarInfo> symbols, List<string> labels)
+        public static string GenerateCode(ParseNode tree,
+                                          Dictionary<string, VarInfo> symbols,
+                                          List<string> labels,
+                                          string assemblyName = "EmittedProgram")
         {
-            string assemblyName = "EmittedProgram";
             string fileName = assemblyName + ".exe";
 
             // Define the assembly and module
@@ -164,7 +166,7 @@ namespace Compiler
                 }
                 else if (ast.Token is StringValue str)
                 {
-                    il.Emit(OpCodes.Ldstr, str.Text);
+                    il.Emit(OpCodes.Ldstr, str.Value);
                 }
                 else if (ast.Token is TrueKeyword)
                 {
@@ -183,9 +185,9 @@ namespace Compiler
                 {
                     if (ast.Children[0] is ASTNode astNode)
                     {
-                        if (astNode.Token is StringValue)
+                        if (astNode.Token is StringValue stringy)
                         {
-                            il.Emit(OpCodes.Ldstr, astNode.Token.Text);
+                            il.Emit(OpCodes.Ldstr, stringy.Value);
                             il.Emit(OpCodes.Call, typeof(Console).GetMethod("WriteLine", [typeof(string)])!);
                         }
                         else if (astNode.Token is Identifier)

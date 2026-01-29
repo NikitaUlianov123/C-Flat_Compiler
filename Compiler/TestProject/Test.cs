@@ -1,6 +1,9 @@
 ﻿using Compiler;
 using Compiler.Tokens;
 
+using System.Reflection;
+using System.Reflection.Metadata;
+using System.Reflection.PortableExecutable;
 using System.Runtime.CompilerServices;
 
 
@@ -170,6 +173,319 @@ namespace TestProject
             analyzer = new SemanticAnalyzer();
             //messages = analyzer.Analyze(twee!);
             ;
+        }
+    }
+
+    [TestClass]
+    public sealed class FullProgram
+    {
+        #region Helpers
+        private void CheckEntryPoint(string file)
+        {
+            using var pe = new PEReader(File.OpenRead(file));
+
+            var cor = pe.PEHeaders.CorHeader;
+            Assert.IsNotNull(cor);
+
+            var entry = cor.EntryPointTokenOrRelativeVirtualAddress;
+
+            // 0 means "no entry point"
+            Assert.AreNotEqual(0, entry);
+        }
+        private void CheckMethodExists(string file, string methodName)
+        {
+            using var pe = new PEReader(File.OpenRead(file));
+            Assert.IsTrue(pe.HasMetadata);
+            var md = pe.GetMetadataReader();
+            bool found = false;
+            foreach (var handle in md.MethodDefinitions)
+            {
+                var method = md.GetMethodDefinition(handle);
+                var name = md.GetString(method.Name);
+                if (name == methodName)
+                {
+                    found = true;
+                    break;
+                }
+            }
+            Assert.IsTrue(found, $"Method '{methodName}' not found.");
+        }
+
+        private void CheckOutput(string file, string expected)
+        {
+            var asm = Assembly.Load(File.ReadAllBytes(file));
+            var entry = asm.EntryPoint;
+
+            // Force JIT
+            RuntimeHelpers.PrepareMethod(entry!.MethodHandle);
+
+            // Capture output
+            using var sw = new StringWriter();
+            Console.SetOut(sw);
+
+            entry.Invoke(null, null);
+
+            var output = sw.ToString();
+
+            Assert.AreEqual(expected, output);
+        }
+
+        private void Compile(string source, string assemblyName)
+        {
+            List<string> messages;
+            SemanticAnalyzer analyzer;
+
+            bool success = Lexer.Lex(source, out List<IToken> result);
+
+            messages = Parser.Parse(result, out ParseNode? twee);
+
+            if (messages.Count > 0) throw new Exception("Did not parse.");
+
+            analyzer = new SemanticAnalyzer();
+            messages = analyzer.Analyze(twee!, out var symbols, out var labels);
+
+            if (messages.Count > 0) throw new Exception("Did not pass analysis.");
+
+            CodeGen.GenerateCode(twee!, symbols, labels, assemblyName);
+        }
+        #endregion
+
+        [TestMethod]
+        public void WhileElseTest()
+        {
+            string program = 
+                "int x = 5;\n" +
+                "while(x < 3)\n" +
+                "{\n" +
+                "    x = x - 1;\n" +
+                "}\n" +
+                "else\n" +
+                "{\n" +
+                "    print(\"Done\");\n" +
+                "}\n";
+
+            string expectedOutput = "Done\r\n";
+
+            string name = "WhileElse";
+
+            Compile(program, name);
+
+            CheckEntryPoint($"{name}.exe");
+            CheckOutput($"{name}.exe", expectedOutput);
+        }
+
+        [TestMethod]
+        public void FunctionTest()
+        {
+            string program =
+                "﻿void Foo()\r\n" +
+                "{\r\n\t" +
+                "print(\"Bar\");\r\n" +
+                "}\r\n" +
+                "\r\n" +
+                "int x = 5;\r\n" +
+                "Foo();";
+
+            string expectedOutput = "Bar\r\n";
+
+            string name = "Function";
+
+            Compile(program, name);
+
+            CheckEntryPoint($"{name}.exe");
+            CheckOutput($"{name}.exe", expectedOutput);
+        }
+
+        [TestMethod]
+        public void ForLoopTest()
+        {
+            string program =
+                "for(int i = 0; i < 14; i = i + 1;)\r\n" +
+                "{\r\n" +
+                "\tprint(i);\r\n" +
+                "\tprint(\"Hello\");\r\n" +
+                "}\r\n" +
+                "\r\n" +
+                "int a = 2;\r\n" +
+                "for(a = 0; a < 14; a = a + 1;)\r\n" +
+                "{\r\n" +
+                "\tprint(a);\r\n" +
+                "}";
+            
+            string expectedOutput =
+                "0\r\n" +
+                "Hello\r\n" +
+                "1\r\n" +
+                "Hello\r\n" +
+                "2\r\n" +
+                "Hello\r\n" +
+                "3\r\n" +
+                "Hello\r\n" +
+                "4\r\n" +
+                "Hello\r\n" +
+                "5\r\n" +
+                "Hello\r\n" +
+                "6\r\n" +
+                "Hello\r\n" +
+                "7\r\n" +
+                "Hello\r\n" +
+                "8\r\n" +
+                "Hello\r\n" +
+                "9\r\n" +
+                "Hello\r\n" +
+                "10\r\n" +
+                "Hello\r\n" +
+                "11\r\n" +
+                "Hello\r\n" +
+                "12\r\n" +
+                "Hello\r\n" +
+                "13\r\n" +
+                "Hello\r\n" +
+                "0\r\n" +
+                "1\r\n" +
+                "2\r\n" +
+                "3\r\n" +
+                "4\r\n" +
+                "5\r\n" +
+                "6\r\n" +
+                "7\r\n" +
+                "8\r\n" +
+                "9\r\n" +
+                "10\r\n" +
+                "11\r\n" +
+                "12\r\n" +
+                "13\r\n";
+
+            string name = "ForLoop";
+
+            Compile(program, name);
+
+            CheckEntryPoint($"{name}.exe");
+            CheckOutput($"{name}.exe", expectedOutput);
+        }
+
+        [TestMethod]
+        public void GotoTest()
+        {
+            string program =
+                "int i = 0;\r\n" +
+                "LoopLabel:\r\n" +
+                "print(\"Loopy\");\r\n" +
+                "if(i > 5)\r\n" +
+                "{\r\n" +
+                    "\tgoto EndLoop;\r\n" +
+                "}\r\n" +
+                "i = i + 1;\r\n" +
+                "goto LoopLabel;\r\n" +
+                "\r\n" +
+                "EndLoop:\r\n" +
+                "print(\"Done\");";
+
+            string expectedOutput =
+                "Loopy\r\n" +
+                "Loopy\r\n" +
+                "Loopy\r\n" +
+                "Loopy\r\n" +
+                "Loopy\r\n" +
+                "Loopy\r\n" +
+                "Loopy\r\n" +
+                "Done\r\n";
+
+            string name = "Goto";
+
+            Compile(program, name);
+
+            CheckEntryPoint($"{name}.exe");
+            CheckOutput($"{name}.exe", expectedOutput);
+        }
+
+        [TestMethod]
+        public void IfElseTest()
+        {
+            string program =
+                "int a = 200;\r\n" +
+                "\r\n" +
+                "if(a <= 37)\r\n" +
+                "{\r\n" +
+                    "\tprint(\"Hi\");\r\n" +
+                "}\r\n" +
+                "else if(a < 37)\r\n" +
+                "{\r\n" +
+                    "\tprint(\"Hey\");\r\n" +
+                "}\r\n" +
+                "else\r\n" +
+                "{\r\n" +
+                    "\tprint(\"Sup\");\r\n" +
+                "}\r\n" +
+                "\r\n" +
+                "ifn't(a <= 37)\r\n" +
+                "{\r\n" +
+                    "\tprint(\"Hello\");\r\n" +
+                "}\r\n" +
+                "else ifn't(a != 2)\r\n" +
+                "{\r\n" +
+                    "\tprint(\"Yay\");\r\n" +
+                    "\tprint(a);\r\n" +
+                "}";
+
+            string expectedOutput =
+                "Sup\r\n" +
+                "Hello\r\n";
+
+            string name = "IfElse";
+
+            Compile(program, name);
+
+            CheckEntryPoint($"{name}.exe");
+            CheckOutput($"{name}.exe", expectedOutput);
+        }
+
+        [TestMethod]
+        public void GuessingGameTest()
+        {
+            string program =
+                "int answer = 37;\r\n" +
+                "\r\n" +
+                "int min = 0;\r\n" +
+                "int max = 100;\r\n" +
+                "bool notDone = true;\r\n" +
+                "while(notDone)\r\n" +
+                "{\r\n" +
+                    "\tint guess = (min + max) / 2;\r\n" +
+                        "\tprint(guess);\r\n" +
+                        "\tif(guess < answer)\r\n" +
+                        "\t{\r\n" +
+                            "\t\tprint(\"Too low\");\r\n" +
+                            "\t\tmin = guess;\r\n" +
+                        "\t}\r\n" +
+                        "\tif(guess > answer)\r\n" +
+                        "\t{\r\n" +
+                            "\t\tprint(\"Too high\");\r\n" +
+                            "\t\tmax = guess;\r\n" +
+                        "\t}\r\n" +
+                        "\tif(guess =? answer)\r\n" +
+                        "\t{\r\n" +
+                            "\t\tprint(\"Correct!\");\r\n" +
+                            "\t\tnotDone = false;\r\n" +
+                        "\t}\r\n" +
+                        "\tint a = 4;\r\n" +
+                    "}\r\nprint(\"Goodbye\");";
+
+            string expectedOutput =
+                "50\r\n" +
+                "Too high\r\n" +
+                "25\r\n" +
+                "Too low\r\n" +
+                "37\r\n" +
+                "Correct!\r\n" +
+                "Goodbye\r\n";
+
+            string name = "GuessingGame";
+
+            Compile(program, name);
+
+            CheckEntryPoint($"{name}.exe");
+            CheckOutput($"{name}.exe", expectedOutput);
         }
     }
 }
