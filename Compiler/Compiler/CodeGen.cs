@@ -364,10 +364,13 @@ namespace Compiler
                 il.Emit(OpCodes.Br, LoopLabel);
 
 
-                il.MarkLabel(followUpLabel);
+                if (@while.Followup != null)//there is a followup
+                {
+                    il.MarkLabel(followUpLabel);
 
-                EmitMethodBody(il, @while.Followup!, locals, symbols, methods);
-
+                    //followup
+                    EmitMethodBody(il, @while.Followup!, locals, symbols, methods);
+                }
 
                 il.MarkLabel(ifFalseLabel);
                 return;

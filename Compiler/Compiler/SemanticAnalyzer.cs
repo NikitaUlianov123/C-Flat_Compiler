@@ -1,7 +1,9 @@
 ﻿using Compiler.Tokens;
+using System.Diagnostics;
 
 namespace Compiler
 {
+    [DebuggerDisplay("Type: {Type}")]
     public struct VarInfo
     {
         public string Type;

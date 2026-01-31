@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
 using System.Runtime.CompilerServices;
+using System.Text;
 
 
 //Excellent — now we’re truly debugging the cake. 🍰
@@ -180,6 +181,21 @@ namespace TestProject
     public sealed class FullProgram
     {
         #region Helpers
+        private static string LogTree(ParseNode node, int depth = 0)
+        {
+            StringBuilder sb = new();
+            sb.AppendLine(new string(' ', depth * 2) + (node is ASTNode ? node : node.GetType().Name));
+            foreach (var child in node.Children)
+            {
+                if (child is ParseNode childNode)
+                {
+                    sb.AppendLine(LogTree(childNode, depth + 1));
+                }
+            }
+
+            return sb.ToString();
+        }
+
         private void CheckEntryPoint(string file)
         {
             using var pe = new PEReader(File.OpenRead(file));
@@ -278,9 +294,9 @@ namespace TestProject
         public void FunctionTest()
         {
             string program =
-                "﻿void Foo()\r\n" +
-                "{\r\n\t" +
-                "print(\"Bar\");\r\n" +
+                "void Foo()\r\n" +
+                "{\r\n" +
+                    "\tprint(\"Bar\");\r\n" +
                 "}\r\n" +
                 "\r\n" +
                 "int x = 5;\r\n" +
@@ -452,24 +468,24 @@ namespace TestProject
                 "while(notDone)\r\n" +
                 "{\r\n" +
                     "\tint guess = (min + max) / 2;\r\n" +
-                        "\tprint(guess);\r\n" +
-                        "\tif(guess < answer)\r\n" +
-                        "\t{\r\n" +
-                            "\t\tprint(\"Too low\");\r\n" +
-                            "\t\tmin = guess;\r\n" +
-                        "\t}\r\n" +
-                        "\tif(guess > answer)\r\n" +
-                        "\t{\r\n" +
-                            "\t\tprint(\"Too high\");\r\n" +
-                            "\t\tmax = guess;\r\n" +
-                        "\t}\r\n" +
-                        "\tif(guess =? answer)\r\n" +
-                        "\t{\r\n" +
-                            "\t\tprint(\"Correct!\");\r\n" +
-                            "\t\tnotDone = false;\r\n" +
-                        "\t}\r\n" +
-                        "\tint a = 4;\r\n" +
-                    "}\r\nprint(\"Goodbye\");";
+                    "\tprint(guess);\r\n" +
+                    "\tif(guess < answer)\r\n" +
+                    "\t{\r\n" +
+                        "\t\tprint(\"Too low\");\r\n" +
+                        "\t\tmin = guess;\r\n" +
+                    "\t}\r\n" +
+                    "\tif(guess > answer)\r\n" +
+                    "\t{\r\n" +
+                        "\t\tprint(\"Too high\");\r\n" +
+                        "\t\tmax = guess;\r\n" +
+                    "\t}\r\n" +
+                    "\tif(guess =? answer)\r\n" +
+                    "\t{\r\n" +
+                        "\t\tprint(\"Correct!\");\r\n" +
+                        "\t\tnotDone = false;\r\n" +
+                    "\t}\r\n" +
+                    "\tint a = 4;\r\n" +
+                "}\r\nprint(\"Goodbye\");";
 
             string expectedOutput =
                 "50\r\n" +
