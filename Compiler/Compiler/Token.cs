@@ -55,6 +55,8 @@ namespace Compiler.Tokens
             [@"^!="] = (text, row, column) => new NotEqualityOperator(text, row, column),
             [@"^="] = (text, row, column) => new AssignmentOperator(text, row, column),
             // Math Operators
+            [@"^\+\+"] = (text, row, column) => new IncrementOperator(text, row, column),
+            [@"^--"] = (text, row, column) => new DecrementOperator(text, row, column),
             [@"^\+"] = (text, row, column) => new PlusOperator(text, row, column),
             [@"^-"] = (text, row, column) => new MinusOperator(text, row, column),
             [@"^\*"] = (text, row, column) => new TimesOperator(text, row, column),
@@ -128,6 +130,9 @@ namespace Compiler.Tokens
     public record MinusOperator(string Text, int Row, int Column) : IToken;
     public record TimesOperator(string Text, int Row, int Column) : IToken;
     public record DivideOperator(string Text, int Row, int Column) : IToken;
+
+    public record IncrementOperator(string Text, int Row, int Column) : IToken;
+    public record DecrementOperator(string Text, int Row, int Column) : IToken;
 
     #endregion
 

@@ -271,6 +271,47 @@ namespace Compiler
                 il.Emit(OpCodes.Stloc, locals[assignment.Name]);
                 return;
             }
+            else if (node is Incrementer incrementer)
+            {
+                if (incrementer.IsPre)
+                {
+                    il.Emit(OpCodes.Ldloc, locals[incrementer.Name]);//load current value
+                    il.Emit(OpCodes.Ldc_I4_1);//load 1
+                    if (incrementer.IsIncrement)
+                    {
+                        il.Emit(OpCodes.Add);
+                    }
+                    else
+                    {
+                        il.Emit(OpCodes.Sub);
+                    }
+
+                    if (node is ExpressionIncrementer)//to leave the value on the stack
+                    {
+                        il.Emit(OpCodes.Dup);
+                    }
+                    il.Emit(OpCodes.Stloc, locals[incrementer.Name]);//store incremented value
+                }
+                else
+                {
+                    il.Emit(OpCodes.Ldloc, locals[incrementer.Name]);//load current value
+
+                    if (node is ExpressionIncrementer)//to leave the value on the stack
+                    {
+                        il.Emit(OpCodes.Dup);
+                    }
+                    il.Emit(OpCodes.Ldc_I4_1);//load 1
+                    if (incrementer.IsIncrement)
+                    {
+                        il.Emit(OpCodes.Add);
+                    }
+                    else
+                    { 
+                        il.Emit(OpCodes.Sub);
+                    }
+                    il.Emit(OpCodes.Stloc, locals[incrementer.Name]);//store incremented value
+                }
+            }
             else if (node is IfStatement @if)
             {
                 //condition
@@ -315,7 +356,7 @@ namespace Compiler
                 {
                     //body
                     EmitMethodBody(il, ifnt.Body, locals, symbols, methods);
-                    
+
                 }
 
                 var ifFalseLabel = il.DefineLabel();

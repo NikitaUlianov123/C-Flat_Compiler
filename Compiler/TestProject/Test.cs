@@ -503,5 +503,35 @@ namespace TestProject
             CheckEntryPoint($"{name}.exe");
             CheckOutput($"{name}.exe", expectedOutput);
         }
+
+        [TestMethod]
+        public void IncrementerTest()
+        {
+            int a = 9;
+            int b = ++a + 2;
+            string program =
+                "int a = 3;\r\n" +
+                "int b = a++;\r\n" +
+                "int c = --b;\r\n" +
+                "int d = ++a + 2;\r\n" +
+                "a++;\r\n" +
+                "print(a);\r\n" +
+                "print(b);\r\n" +
+                "print(c);\r\n" +
+                "print(d);\r\n";
+
+            string expectedOutput =
+                "6\r\n" +
+                "2\r\n" +
+                "2\r\n" +
+                "7\r\n";
+
+            string name = "Incrementer";
+
+            Compile(program, name);
+
+            CheckEntryPoint($"{name}.exe");
+            CheckOutput($"{name}.exe", expectedOutput);
+        }
     }
 }

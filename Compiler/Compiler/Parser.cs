@@ -35,13 +35,19 @@ namespace Compiler
 
             [typeof(VariableExpr)] = [[typeof(VariableDeclaration)],
                                       [typeof(VariableDeclarationAndAssignment)],
-                                      [typeof(VariableAssignment)]],
+                                      [typeof(VariableAssignment)],
+                                      [typeof(Incrementer)]],//a++; or --a;
             [typeof(VariableDeclaration)] = [[typeof(Identifier), typeof(Identifier), typeof(Semicolon)]], //int a;
             [typeof(VariableDeclarationAndAssignment)] = [[typeof(Identifier), typeof(Identifier), typeof(AssignmentOperator), typeof(VariableValue), typeof(Semicolon)]],//int a = 5;
             [typeof(VariableAssignment)] = [[typeof(Identifier), typeof(AssignmentOperator), typeof(VariableValue), typeof(Semicolon)]],
             [typeof(VariableValue)] = [[typeof(MathExpr)],
                                        [typeof(StringValue)],
                                        [typeof(BoolLiteral)]],
+
+            [typeof(Incrementer)] = [[typeof(Identifier), typeof(IncrementOperator), typeof(Semicolon)],
+                                     [typeof(Identifier), typeof(DecrementOperator), typeof(Semicolon)],
+                                     [typeof(IncrementOperator), typeof(Identifier), typeof(Semicolon)],
+                                     [typeof(DecrementOperator), typeof(Identifier), typeof(Semicolon)]],
 
             #region Maph
             [typeof(MathExpr)] = [[typeof(MathTerm), typeof(MathExprTail)]],
@@ -56,7 +62,13 @@ namespace Compiler
 
             [typeof(MathFactor)] = [[typeof(OpenParenthesis), typeof(MathExpr), typeof(CloseParenthesis)],
                                     [typeof(NumericValue)],
+                                    [typeof(ExpressionIncrementer)],
                                     [typeof(Identifier)]],
+
+            [typeof(ExpressionIncrementer)] = [[typeof(Identifier), typeof(IncrementOperator)],//if you just say Incrementer, it will
+                                               [typeof(Identifier), typeof(DecrementOperator)],//make every ExpressionIncrementer
+                                               [typeof(IncrementOperator), typeof(Identifier)],//into an Incrementer during AST
+                                               [typeof(DecrementOperator), typeof(Identifier)]],//generation
             #endregion
 
             #region Flow control
@@ -483,6 +495,37 @@ namespace Compiler
             return this;
         }
     }
+
+    public record class Incrementer : ParseNode
+    {
+        public bool IsPre = false;
+        public string Name { get; private set; } = "";
+        public bool IsIncrement = true;
+        public override ParseNode Hoist()
+        {
+            base.Hoist();
+
+            if (Children[0] is not Identifier)
+            {
+                IsPre = true;
+                Name = (Children[1] as IToken)!.Text;
+                Children.RemoveAt(1);
+            }
+            else
+            {
+                Name = (Children[0] as IToken)!.Text;
+                Children.RemoveAt(0);
+            }
+
+            IsIncrement = Children[0] is IncrementOperator;
+
+            Children.Clear();//remove the operator and maybe ';'
+            TypeExpected = "int";
+
+            return this;
+        }
+    }
+    public record class ExpressionIncrementer : Incrementer;
     #endregion
 
     #region Flow control

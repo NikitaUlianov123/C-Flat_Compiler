@@ -143,6 +143,13 @@ namespace Compiler
 
                 CheckType(assignment, value.Type, messages, scopes);
             }
+            else if (node is Incrementer incrementer)
+            {
+                if (!scopes.TryGetVar(incrementer.Name, out VarInfo value))
+                {
+                    messages.Add($"Variable '{incrementer.Name}' not declared in scope. {incrementer.Location.row}, {incrementer.Location.column}");
+                }
+            }
             else if (node is GotoStatement @goto)
             {
                 if (!labels.Contains(@goto.LabelName))
