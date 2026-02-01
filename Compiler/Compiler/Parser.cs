@@ -35,11 +35,11 @@ namespace Compiler
 
             [typeof(VariableExpr)] = [[typeof(VariableDeclaration)],
                                       [typeof(VariableDeclarationAndAssignment)],
-                                      [typeof(VariableAssignment)],
-                                      [typeof(Incrementer)]],//a++; or --a;
+                                      [typeof(VariableAssignment)]],
             [typeof(VariableDeclaration)] = [[typeof(Identifier), typeof(Identifier), typeof(Semicolon)]], //int a;
             [typeof(VariableDeclarationAndAssignment)] = [[typeof(Identifier), typeof(Identifier), typeof(AssignmentOperator), typeof(VariableValue), typeof(Semicolon)]],//int a = 5;
-            [typeof(VariableAssignment)] = [[typeof(Identifier), typeof(AssignmentOperator), typeof(VariableValue), typeof(Semicolon)]],
+            [typeof(VariableAssignment)] = [[typeof(Identifier), typeof(AssignmentOperator), typeof(VariableValue), typeof(Semicolon)],
+                                            [typeof(Incrementer)]],//a++; or --a;
             [typeof(VariableValue)] = [[typeof(MathExpr)],
                                        [typeof(StringValue)],
                                        [typeof(BoolLiteral)]],

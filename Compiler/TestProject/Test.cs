@@ -267,6 +267,7 @@ namespace TestProject
         #endregion
 
         [TestMethod]
+        [DoNotParallelize]
         public void WhileElseTest()
         {
             string program = 
@@ -291,6 +292,7 @@ namespace TestProject
         }
 
         [TestMethod]
+        [DoNotParallelize]
         public void FunctionTest()
         {
             string program =
@@ -310,13 +312,15 @@ namespace TestProject
 
             CheckEntryPoint($"{name}.exe");
             CheckOutput($"{name}.exe", expectedOutput);
+            CheckMethodExists($"{name}.exe", "Foo");
         }
 
         [TestMethod]
+        [DoNotParallelize]
         public void ForLoopTest()
         {
             string program =
-                "for(int i = 0; i < 14; i = i + 1;)\r\n" +
+                "for(int i = 0; i < 14; i++;)\r\n" +
                 "{\r\n" +
                 "\tprint(i);\r\n" +
                 "\tprint(\"Hello\");\r\n" +
@@ -381,6 +385,7 @@ namespace TestProject
         }
 
         [TestMethod]
+        [DoNotParallelize]
         public void GotoTest()
         {
             string program =
@@ -416,6 +421,7 @@ namespace TestProject
         }
 
         [TestMethod]
+        [DoNotParallelize]
         public void IfElseTest()
         {
             string program =
@@ -457,6 +463,7 @@ namespace TestProject
         }
 
         [TestMethod]
+        [DoNotParallelize]
         public void GuessingGameTest()
         {
             string program =
@@ -505,6 +512,7 @@ namespace TestProject
         }
 
         [TestMethod]
+        [DoNotParallelize]
         public void IncrementerTest()
         {
             int a = 9;
