@@ -110,10 +110,36 @@ namespace Compiler
                 }
                 else
                 {
-                    scopes.PushFunc(funcy.Name, new FuncInfo(funcy.ReturnType, []));
+                    scopes.PushFunc(funcy.Name, new FuncInfo(funcy.ReturnType, funcy.Parameters.Select(x => new VarInfo(x.Type)).ToList()));
                 }
 
                 //Todo: check return type
+            }
+            else if (node is FunctionCall call)
+            {
+                if (!scopes.TryGetFunc(call.Name, out FuncInfo func))
+                {
+                    messages.Add($"Function '{call.Name}' not found. {call.Location.row}, {call.Location.column}");
+                }
+                else
+                {
+                    //Type check parameters
+                    if (call.Parameters.Count != func.Parameters.Count)
+                    {
+                        messages.Add($"Incorrect number of parameters for {call.Name}. {call.Location.row}, {call.Location.column}");
+                    }
+                    else
+                    {
+                        for (int i = 0; i < func.Parameters.Count; i++)
+                        {
+                            if (!CheckTerminalType(call.Parameters[i], func.Parameters[i].Type, messages, scopes))
+                            {
+                                messages.Add($"Incorrect type for parameter {i}. {call.Location.row}, {call.Location.column}");
+                            }
+                        }
+                    }
+                    return symbols;//skip type checking for now
+                }
             }
             else if (node is VariableDeclaration decl)
             {
@@ -157,18 +183,6 @@ namespace Compiler
                     messages.Add($"Label '{@goto.LabelName}' not found. {@goto.Location.row}, {@goto.Location.column}");
                 }
             }
-            else if (node is FunctionCall call)
-            {
-                if (!scopes.TryGetFunc(call.Name, out FuncInfo func))
-                {
-                    messages.Add($"Function '{call.Name}' not found. {call.Location.row}, {call.Location.column}");
-                }
-                else
-                {
-                    //Todo: type check parameters
-                    return symbols;//skip type checking for now
-                }
-            }
             else if (node is ASTNode ast)
             {
                 if (ast.Token is Identifier id)
@@ -191,6 +205,13 @@ namespace Compiler
                 if (opensScope)
                 {
                     scopes.PushScope();
+                    if (node is FunctionDeclaration func)
+                    {
+                        foreach (FunctionParameter param in func.Parameters)
+                        {
+                            scopes.PushVar(param.Name, new VarInfo(param.Type));
+                        }
+                    }
                 }
 
                 GetSymbols((child as ParseNode)!, messages, scopes, symbols, labels);
@@ -204,41 +225,67 @@ namespace Compiler
             return symbols;
         }
 
+        private bool CheckTerminalType(ASTNode node, string type, List<string> messages, ScopeStack scopes)
+        {
+            if (node.Token is Identifier id)
+            {
+                if (scopes.TryGetVar(id.Text, out var info))
+                {
+                    if (info.Type == type)
+                    {
+                        return true;
+                    }
+                    else
+                    {
+                        messages.Add($"Expected type '{type}' but found '{id.Text}'({info.Type}) at {id.Row}, {id.Column}");
+                        return false;
+                    }
+                }
+            }
+            else if (node.Token is NumericValue)
+            {
+                if (type == "int")
+                {
+                    return true;
+                }
+                else
+                {
+                    messages.Add($"Expected type '{type}' but found int literal at {node.Location.row}, {node.Location.column}");
+                    return false;
+                }
+            }
+            else if (node.Token is StringValue)
+            {
+                if (type == "string")
+                {
+                    return true;
+                }
+                else
+                {
+                    messages.Add($"Expected type '{type}' but found string literal at {node.Location.row}, {node.Location.column}");
+                    return false;
+                }
+            }
+            else if (node.Token is BoolLiteral or TrueKeyword or FalseKeyword)
+            {
+                if (type == "bool")
+                {
+                    return true;
+                }
+                else
+                {
+                    messages.Add($"Expected type '{type}' but found bool literal at {node.Location.row}, {node.Location.column}");
+                    return false;
+                }
+            }
+            messages.Add($"Unexpected type mismatch at {node.Token.Row}, {node.Token.Column}");
+            return false;
+        }
         private void CheckType(ParseNode node, string type, List<string> messages, ScopeStack scopes)
         {
             if (node is ASTNode ast && ast.Children.Count == 0) //is terminal
             {
-                if (ast.Token is Identifier id)
-                {
-                    if (scopes.TryGetVar(id.Text, out var info))
-                    {
-                        if (info.Type != type)
-                        {
-                            messages.Add($"Expected type '{type}' but found '{id.Text}'({info.Type}) at {id.Row}, {id.Column}");
-                        }
-                    }
-                }
-                else if (ast.Token is NumericValue)
-                {
-                    if (type != "int")
-                    {
-                        messages.Add($"Expected type '{type}' but found int literal at {ast.Location.row}, {ast.Location.column}");
-                    }
-                }
-                else if (ast.Token is StringValue)
-                {
-                    if (type != "string")
-                    {
-                        messages.Add($"Expected type '{type}' but found string literal at {ast.Location.row}, {ast.Location.column}");
-                    }
-                }
-                else if (ast.Token is BoolLiteral or TrueKeyword or FalseKeyword)
-                {
-                    if (type != "bool")
-                    {
-                        messages.Add($"Expected type '{type}' but found bool literal at {ast.Location.row}, {ast.Location.column}");
-                    }
-                }
+                CheckTerminalType(ast, type, messages, scopes);
             }
             else
             {

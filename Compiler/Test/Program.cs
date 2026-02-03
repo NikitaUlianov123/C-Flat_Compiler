@@ -31,7 +31,7 @@ namespace Test
             
             if (messages.Count > 0) throw new Exception("Did not pass analysis.");
 
-            CodeGen.GenerateCode(twee!, symbols, labels);
+            CodeGen.GenerateCode(twee!, labels);
 
             ;
             //ildasm C:\users\test\Documents\Github\C-Flat_Compiler\Compiler\Test\bin\Debug\net10.0\EmittedProgram.exe        /out:D:\Documents\Github\C-Flat_Compiler\Compiler\Test\bin\Debug\net10.0\full.il

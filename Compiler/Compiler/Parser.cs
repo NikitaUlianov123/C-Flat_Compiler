@@ -89,9 +89,17 @@ namespace Compiler
             [typeof(GotoStatement)] = [[typeof(GotoKeyword), typeof(Identifier), typeof(Semicolon)]],
             #endregion
 
-            [typeof(FunctionDeclaration)] = [[typeof(Identifier), typeof(Identifier), typeof(OpenParenthesis), typeof(CloseParenthesis), typeof(OpenCurlyBracket), typeof(Program), typeof(CloseCurlyBracket)]],//void Name(){code}
+            [typeof(FunctionDeclaration)] = [[typeof(Identifier), typeof(Identifier), typeof(OpenParenthesis), typeof(CloseParenthesis), typeof(OpenCurlyBracket), typeof(Program), typeof(CloseCurlyBracket)],//void Name(){code}
+                                             [typeof(Identifier), typeof(Identifier), typeof(OpenParenthesis), typeof(FunctionParameter), typeof(CloseParenthesis), typeof(OpenCurlyBracket), typeof(Program), typeof(CloseCurlyBracket)]],//void Name(params){code}
 
-            [typeof(FunctionCall)] = [[typeof(Identifier), typeof(OpenParenthesis), typeof(CloseParenthesis), typeof(Semicolon)]],//Name();
+            [typeof(FunctionCall)] = [[typeof(Identifier), typeof(OpenParenthesis), typeof(CloseParenthesis), typeof(Semicolon)],//Name();
+                                      [typeof(Identifier), typeof(OpenParenthesis), typeof(FunctionCallParameter), typeof(CloseParenthesis), typeof(Semicolon)]],
+
+            [typeof(FunctionParameter)] = [[typeof(Identifier), typeof(Identifier), typeof(Comma), typeof(FunctionParameter)],
+                                           [typeof(Identifier), typeof(Identifier)]],
+
+            [typeof(FunctionCallParameter)] = [[typeof(VariableValue), typeof(Comma), typeof(FunctionCallParameter)],
+                                               [typeof(VariableValue)]],
 
             #region bool
             [typeof(BoolExpr)] = [[typeof(BoolAndExpr), typeof(BoolOrExprTail)]],
@@ -734,6 +742,9 @@ namespace Compiler
         public string ReturnType { get; private set; } = "";
         public string Name { get; private set; } = "";
 
+        public List<FunctionParameter> Parameters { get; private set; } = [];
+
+
         public override ParseNode Hoist()
         {
             base.Hoist();
@@ -748,9 +759,19 @@ namespace Compiler
             Children.RemoveAt(curr); //remove the name
             Children.RemoveAt(curr); //remove the open parenthesis
 
-            if ((Children[curr] as IToken) is not CloseParenthesis)//there are params
+            while ((Children[curr] as IToken) is not CloseParenthesis)//there are params
             {
-                curr++;//keep params
+                FunctionParameter param = (Children[curr] as FunctionParameter)!;
+                Parameters.Add(param);
+
+                if (param.Children.Count > 0)
+                {
+                    Children[curr] = param.Children[0];//replace with next param
+                }
+                else
+                {
+                    Children.RemoveAt(curr); //remove the close parenthesis
+                }
             }
             Children.RemoveAt(curr); //remove the close parenthesis
             Children.RemoveAt(curr); //remove the open curly bracket
@@ -768,6 +789,7 @@ namespace Compiler
     public record class FunctionCall : ParseNode
     {
         public string Name { get; private set; } = "";
+        public List<ASTNode> Parameters { get; private set; } = [];
 
         public override ParseNode Hoist()
         {
@@ -779,16 +801,67 @@ namespace Compiler
 
             Children.RemoveAt(0); //remove the name
             Children.RemoveAt(0); //remove the open parenthesis
-            if ((Children[0] as IToken) is not CloseParenthesis)//there are args
+
+            while ((Children[0] as IToken) is not CloseParenthesis)//there are params
             {
-                //keep args
-                Children.RemoveAt(1); //remove the close parenthesis
-                Children.RemoveAt(1); //remove the semicolon
+                if (Children[0] is ASTNode node)
+                {
+                    Parameters.Add(node);
+                    Children.RemoveAt(0);
+                }
+                else
+                {
+                    FunctionCallParameter param = (Children[0] as FunctionCallParameter)!;
+
+                    Parameters.Add((param.Children[0] as ASTNode)!);
+
+                    Children[0] = param.Children[1];//replace with next param
+                }
             }
-            else
+            
+            Children.RemoveAt(0); //remove the close parenthesis
+            Children.RemoveAt(0); //remove the semicolon
+
+            return this;
+        }
+    }
+
+    public record class FunctionParameter : ParseNode
+    {
+        public string Type { get; private set; } = "";
+        public string Name { get; private set; } = "";
+        public override ParseNode Hoist()
+        {
+            base.Hoist();
+
+            Location = ((Children[0] as IToken)!.Row, (Children[0] as IToken)!.Column);
+
+            Type = (Children[0] as IToken)!.Text;
+            Children.RemoveAt(0);//remove the type token
+
+            Name = (Children[0] as IToken)!.Text;
+            Children.RemoveAt(0);//remove the name token
+
+            if (Children.Count > 1)//if there are more after
             {
-                Children.RemoveAt(0); //remove the close parenthesis
-                Children.RemoveAt(0); //remove the semicolon
+                Children.RemoveAt(0);//remove the comma
+            }
+
+            return this;
+        }
+    }
+
+    public record class FunctionCallParameter : ParseNode
+    {
+        public override ParseNode Hoist()
+        {
+            base.Hoist();
+
+            Location = ((Children[0] as ASTNode)!.Token.Row, (Children[0] as ASTNode)!.Token.Column);
+
+            if (Children.Count > 1)//if there are more after
+            {
+                Children.RemoveAt(1);//remove the comma
             }
 
             return this;

@@ -262,7 +262,7 @@ namespace TestProject
 
             if (messages.Count > 0) throw new Exception("Did not pass analysis.");
 
-            CodeGen.GenerateCode(twee!, symbols, labels, assemblyName);
+            CodeGen.GenerateCode(twee!, labels, assemblyName);
         }
         #endregion
 
@@ -515,23 +515,24 @@ namespace TestProject
         [DoNotParallelize]
         public void IncrementerTest()
         {
-            int a = 9;
-            int b = ++a + 2;
             string program =
                 "int a = 3;\r\n" +
                 "int b = a++;\r\n" +
                 "int c = --b;\r\n" +
                 "int d = ++a + 2;\r\n" +
+                "int e = d;\r\n" +
                 "a++;\r\n" +
                 "print(a);\r\n" +
                 "print(b);\r\n" +
                 "print(c);\r\n" +
-                "print(d);\r\n";
+                "print(d);\r\n" +
+                "print(e);\r\n";
 
             string expectedOutput =
                 "6\r\n" +
                 "2\r\n" +
                 "2\r\n" +
+                "7\r\n" +
                 "7\r\n";
 
             string name = "Incrementer";
@@ -540,6 +541,36 @@ namespace TestProject
 
             CheckEntryPoint($"{name}.exe");
             CheckOutput($"{name}.exe", expectedOutput);
+        }
+
+        [TestMethod]
+        [DoNotParallelize]
+        public void FunctionParamTest()
+        {
+            string program =
+                "void Foo(int a, string b)\r\n" +
+                "{\r\n" +
+                    "\tfor(int i = 0; i < a; i++;)\r\n" +
+                    "\t{\r\n" +
+                        "\t\tprint(b);\r\n" +
+                    "\t}\r\n" +
+                "}\r\n" +
+                "\r\n" +
+                "Foo(4, \"Hello\");\r\n";
+
+            string expectedOutput =
+                "Hello\r\n" +
+                "Hello\r\n" +
+                "Hello\r\n" +
+                "Hello\r\n";
+
+            string name = "FunctionParam";
+
+            Compile(program, name);
+
+            CheckEntryPoint($"{name}.exe");
+            CheckOutput($"{name}.exe", expectedOutput);
+            CheckMethodExists($"{name}.exe", "Foo");
         }
     }
 }

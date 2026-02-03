@@ -64,7 +64,6 @@ namespace Compiler
 
 
         public static string GenerateCode(ParseNode tree,
-                                          Dictionary<string, VarInfo> symbols,
                                           List<string> labels,
                                           string assemblyName = "EmittedProgram")
         {
@@ -101,13 +100,21 @@ namespace Compiler
                     var tempMethodBuilder = typeBuilder.DefineMethod(func.Name,
                         MethodAttributes.Public | MethodAttributes.Static,
                         returnType: typeof(void),
-                        parameterTypes: Type.EmptyTypes);
+                        parameterTypes: func.Parameters.Select(x => TypeMap[x.Type]).ToArray());
 
 
                     ILGenerator methodIL = tempMethodBuilder.GetILGenerator();
 
 
-                    EmitMethodBody(methodIL, (func.Children[0] as ParseNode)!, [], symbols, methods);
+                    Dictionary<string, int> args = [];
+                    Dictionary<string, Type> symbols = [];
+                    for (int i = 0; i < func.Parameters.Count; i++)
+                    {
+                        args.Add(func.Parameters[i].Name, i);
+                        symbols.Add(func.Parameters[i].Name, TypeMap[func.Parameters[i].Type]);
+                    }
+
+                    EmitMethodBody(methodIL, (func.Children[0] as ParseNode)!, [], args, symbols, methods);
 
                     methodIL.Emit(OpCodes.Ret);
 
@@ -120,7 +127,7 @@ namespace Compiler
             MapLabels(il, labels);
 
             //code go here
-            EmitMethodBody(il, tree, [], symbols, methods);
+            EmitMethodBody(il, tree, [], [], [], methods);
 
 
             il.Emit(OpCodes.Ret);
@@ -154,7 +161,8 @@ namespace Compiler
         private static void EmitMethodBody(ILGenerator il,
                                            ParseNode node,
                                            Dictionary<string, int> locals,
-                                           Dictionary<string, VarInfo> symbols,
+                                           Dictionary<string, int> args,
+                                           Dictionary<string, Type> symbols,
                                            Dictionary<string, MethodInfo> methods)
         {
             if (node is ASTNode ast)
@@ -179,54 +187,58 @@ namespace Compiler
                 #endregion
                 else if (ast.Token is Identifier id)
                 {
-                    il.Emit(OpCodes.Ldloc, locals[id.Text]);
+                    if (locals.TryGetValue(id.Text, out int localId))
+                    {
+                        il.Emit(OpCodes.Ldloc, localId);
+                    }
+                    else
+                    {
+                        il.Emit(OpCodes.Ldarg, args[id.Text]);
+                    }
                 }
                 else if (ast.Token is PrintKeyword)
                 {
-                    if (ast.Children[0] is ASTNode astNode)
+                    var body = (ast.Children[0] as ASTNode)!;
+                    EmitMethodBody(il, body, locals, args, symbols, methods);
+                    if (body.Token is StringValue stringy)
                     {
-                        if (astNode.Token is StringValue stringy)
-                        {
-                            il.Emit(OpCodes.Ldstr, stringy.Value);
-                            il.Emit(OpCodes.Call, typeof(Console).GetMethod("WriteLine", [typeof(string)])!);
-                        }
-                        else if (astNode.Token is Identifier)
-                        {
-                            string variableName = (ast.Children[0] as ASTNode)!.Token.Text;
-                            il.Emit(OpCodes.Ldloc, locals[variableName]);
-                            il.Emit(OpCodes.Call, typeof(Console).GetMethod("WriteLine", [TypeMap[symbols[variableName].Type]])!);
-                        }
+                        il.Emit(OpCodes.Call, typeof(Console).GetMethod("WriteLine", [typeof(string)])!);
+                    }
+                    else if (body.Token is Identifier)
+                    {
+                        string variableName = body.Token.Text;
+                        il.Emit(OpCodes.Call, typeof(Console).GetMethod("WriteLine", [symbols[variableName]])!);
                     }
                     return;
                 }
                 else if (MathOperators.TryGetValue(ast.Token.GetType(), out var MathOp))
                 {
-                    EmitMethodBody(il, (ast.Children[0] as ParseNode)!, locals, symbols, methods);
-                    EmitMethodBody(il, (ast.Children[1] as ParseNode)!, locals, symbols, methods);
+                    EmitMethodBody(il, (ast.Children[0] as ParseNode)!, locals, args, symbols, methods);
+                    EmitMethodBody(il, (ast.Children[1] as ParseNode)!, locals, args, symbols, methods);
 
                     il.Emit(MathOp);
                     return;
                 }
                 else if (Comparisons.TryGetValue(ast.Token.GetType(), out var CompOp))
                 {
-                    EmitMethodBody(il, (ast.Children[0] as ParseNode)!, locals, symbols, methods);
-                    EmitMethodBody(il, (ast.Children[1] as ParseNode)!, locals, symbols, methods);
+                    EmitMethodBody(il, (ast.Children[0] as ParseNode)!, locals, args, symbols, methods);
+                    EmitMethodBody(il, (ast.Children[1] as ParseNode)!, locals, args, symbols, methods);
 
                     il.Emit(CompOp);
                     return;
                 }
                 else if (BoolOperators.TryGetValue(ast.Token.GetType(), out var BoolOp))
                 {
-                    EmitMethodBody(il, (ast.Children[0] as ParseNode)!, locals, symbols, methods);
-                    EmitMethodBody(il, (ast.Children[1] as ParseNode)!, locals, symbols, methods);
+                    EmitMethodBody(il, (ast.Children[0] as ParseNode)!, locals, args, symbols, methods);
+                    EmitMethodBody(il, (ast.Children[1] as ParseNode)!, locals, args, symbols, methods);
 
                     il.Emit(BoolOp);
                     return;
                 }
                 else if (AnnoyingComparisons.TryGetValue(ast.Token.GetType(), out var ACompOp))
                 {
-                    EmitMethodBody(il, (ast.Children[0] as ParseNode)!, locals, symbols, methods);
-                    EmitMethodBody(il, (ast.Children[1] as ParseNode)!, locals, symbols, methods);
+                    EmitMethodBody(il, (ast.Children[0] as ParseNode)!, locals, args, symbols, methods);
+                    EmitMethodBody(il, (ast.Children[1] as ParseNode)!, locals, args, symbols, methods);
 
                     il.Emit(ACompOp);
 
@@ -237,7 +249,7 @@ namespace Compiler
                 }
                 else if (ast.Token is NotOperator)
                 {
-                    EmitMethodBody(il, (ast.Children[0] as ParseNode)!, locals, symbols, methods);
+                    EmitMethodBody(il, (ast.Children[0] as ParseNode)!, locals, args, symbols, methods);
 
                     il.Emit(OpCodes.Ldc_I4_0);//load false
                     il.Emit(OpCodes.Ceq);//essentially !bool => bool == false
@@ -246,7 +258,7 @@ namespace Compiler
                 else if (ast.Token is ElseKeyword)
                 {
                     //body
-                    EmitMethodBody(il, (node.Children[0] as ParseNode)!, locals, symbols, methods);
+                    EmitMethodBody(il, (node.Children[0] as ParseNode)!, locals, args, symbols, methods);
                     return;
                 }
                 else if (ast.Token is Tokens.Label label)
@@ -256,17 +268,17 @@ namespace Compiler
             }
             else if (node is VariableDeclaration decl)
             {
-                il.DeclareLocal(TypeMap[decl.Type]);
+                symbols.Add(decl.Name, il.DeclareLocal(TypeMap[decl.Type]).LocalType);
                 locals.Add(decl.Name, locals.Count);
 
-                EmitMethodBody(il, (decl.Children[0] as ParseNode)!, locals, symbols, methods);
+                EmitMethodBody(il, (decl.Children[0] as ParseNode)!, locals, args, symbols, methods);
 
                 il.Emit(OpCodes.Stloc, locals[decl.Name]);
                 return;
             }
             else if (node is VariableAssignment assignment)
             {
-                EmitMethodBody(il, (assignment.Children[0] as ParseNode)!, locals, symbols, methods);
+                EmitMethodBody(il, (assignment.Children[0] as ParseNode)!, locals, args, symbols, methods);
 
                 il.Emit(OpCodes.Stloc, locals[assignment.Name]);
                 return;
@@ -315,7 +327,7 @@ namespace Compiler
             else if (node is IfStatement @if)
             {
                 //condition
-                EmitMethodBody(il, @if.Condition!, locals, symbols, methods);
+                EmitMethodBody(il, @if.Condition!, locals, args, symbols, methods);
 
 
                 var ifFalseLabel = il.DefineLabel();
@@ -325,7 +337,7 @@ namespace Compiler
                 if (@if.Body != null)
                 {
                     //body
-                    EmitMethodBody(il, @if.Body, locals, symbols, methods);
+                    EmitMethodBody(il, @if.Body, locals, args, symbols, methods);
                 }
 
                 var ifTrueLabel = il.DefineLabel();
@@ -337,7 +349,7 @@ namespace Compiler
                 if (@if.Followup != null)//there is a followup
                 {
                     //followup
-                    EmitMethodBody(il, @if.Followup, locals, symbols, methods);
+                    EmitMethodBody(il, @if.Followup, locals, args, symbols, methods);
                 }
 
                 il.MarkLabel(ifTrueLabel);
@@ -346,7 +358,7 @@ namespace Compiler
             else if (node is IfntStatement ifnt)
             {
                 //condition
-                EmitMethodBody(il, ifnt.Condition!, locals, symbols, methods);
+                EmitMethodBody(il, ifnt.Condition!, locals, args, symbols, methods);
 
                 var ifTrueLabel = il.DefineLabel();
 
@@ -355,7 +367,7 @@ namespace Compiler
                 if (ifnt.Body != null)
                 {
                     //body
-                    EmitMethodBody(il, ifnt.Body, locals, symbols, methods);
+                    EmitMethodBody(il, ifnt.Body, locals, args, symbols, methods);
 
                 }
 
@@ -368,7 +380,7 @@ namespace Compiler
                 if (ifnt.Followup != null)//there is a followup
                 {
                     //followup
-                    EmitMethodBody(il, ifnt.Followup, locals, symbols, methods);
+                    EmitMethodBody(il, ifnt.Followup, locals, args, symbols, methods);
                 }
 
                 il.MarkLabel(ifFalseLabel);
@@ -384,7 +396,7 @@ namespace Compiler
                 if (@while.Followup != null)
                 {
                     //condition
-                    EmitMethodBody(il, @while.Condition!, locals, symbols, methods);
+                    EmitMethodBody(il, @while.Condition!, locals, args, symbols, methods);
 
                     il.Emit(OpCodes.Brfalse, followUpLabel);
                 }
@@ -392,14 +404,14 @@ namespace Compiler
                 il.MarkLabel(LoopLabel);
 
                 //condition
-                EmitMethodBody(il, @while.Condition!, locals, symbols, methods);
+                EmitMethodBody(il, @while.Condition!, locals, args, symbols, methods);
 
                 il.Emit(OpCodes.Brfalse, ifFalseLabel);
 
                 if (@while.Body != null)//there is a body
                 {
                     //body
-                    EmitMethodBody(il, @while.Body!, locals, symbols, methods);
+                    EmitMethodBody(il, @while.Body!, locals, args, symbols, methods);
                 }
 
                 il.Emit(OpCodes.Br, LoopLabel);
@@ -410,7 +422,7 @@ namespace Compiler
                     il.MarkLabel(followUpLabel);
 
                     //followup
-                    EmitMethodBody(il, @while.Followup!, locals, symbols, methods);
+                    EmitMethodBody(il, @while.Followup!, locals, args, symbols, methods);
                 }
 
                 il.MarkLabel(ifFalseLabel);
@@ -418,7 +430,7 @@ namespace Compiler
             }
             else if (node is ForLoop)
             {
-                EmitMethodBody(il, (node.Children[0] as ParseNode)!, locals, symbols, methods);//variable init
+                EmitMethodBody(il, (node.Children[0] as ParseNode)!, locals, args, symbols, methods);//variable init
 
                 var ConditionLabel = il.DefineLabel();
                 il.Emit(OpCodes.Br_S, ConditionLabel);//skip to condition first
@@ -429,16 +441,16 @@ namespace Compiler
 
                 if (node.Children.Count > 3)//if there is a body
                 {
-                    EmitMethodBody(il, (node.Children[3] as ParseNode)!, locals, symbols, methods);//body
+                    EmitMethodBody(il, (node.Children[3] as ParseNode)!, locals, args, symbols, methods);//body
                 }
 
-                EmitMethodBody(il, (node.Children[2] as ParseNode)!, locals, symbols, methods);//increment
+                EmitMethodBody(il, (node.Children[2] as ParseNode)!, locals, args, symbols, methods);//increment
 
 
 
                 il.MarkLabel(ConditionLabel);
 
-                EmitMethodBody(il, (node.Children[1] as ParseNode)!, locals, symbols, methods);//condition
+                EmitMethodBody(il, (node.Children[1] as ParseNode)!, locals, args, symbols, methods);//condition
                 il.Emit(OpCodes.Brtrue, LoopLabel);//loop if condition true
 
 
@@ -454,15 +466,19 @@ namespace Compiler
             }
             else if (node is FunctionCall call)
             {
-                //il.EmitCall(OpCodes.Call, methods[call.Name], null);
-                il.Emit(OpCodes.Call, methods[call.Name]);
+                for (int i = 0; i < call.Parameters.Count; i++)
+                {
+                    EmitMethodBody(il, call.Parameters[i], locals, args, symbols, methods);
+                }
+
+                il.EmitCall(OpCodes.Call, methods[call.Name], null);
             }
 
             for (int i = 0; i < node.Children.Count; i++)
             {
                 if (node.Children[i] is ParseNode pn)
                 {
-                    EmitMethodBody(il, pn, locals, symbols, methods);
+                    EmitMethodBody(il, pn, locals, args, symbols, methods);
                 }
             }
         }

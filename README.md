@@ -1,7 +1,7 @@
-This is a full compiler for a C#-inspired language.
-
-Contains a Tokenizer, Parser, Syntax Analyzer, and Code Gen.
-
+This is a full compiler for a C#-inspired language.  
+  
+Contains a Tokenizer, Parser, Syntax Analyzer, and Code Gen.  
+  
 Current progress:  
 Fully Implemented Features:  
 variables  
@@ -17,13 +17,13 @@ goto
 void functions  
 while, else  
 ++ and --  
+function parameters  
   
   
 Semantic Analyzed Features:  
   
   
 AST'd Features:  
-function parameters  
   
   
 CST'd Features:  
