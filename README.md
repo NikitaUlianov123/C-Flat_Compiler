@@ -11,13 +11,14 @@ while
 ifn't  
 else  
 else if  
-for (requires ; after increment)  
+for  
 comments (only single line "//")  
 goto  
 void functions  
 while, else  
 ++ and --  
 function parameters  
+return functions  
   
   
 Semantic Analyzed Features:  
@@ -32,7 +33,6 @@ CST'd Features:
 Tokenized Features:  
   
 ToDo Features:  
-return functions  
 function overloads  
 go away statement (break out of all loops)  
 arrays  

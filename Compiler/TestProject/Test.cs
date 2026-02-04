@@ -311,8 +311,8 @@ namespace TestProject
             Compile(program, name);
 
             CheckEntryPoint($"{name}.exe");
-            CheckOutput($"{name}.exe", expectedOutput);
             CheckMethodExists($"{name}.exe", "Foo");
+            CheckOutput($"{name}.exe", expectedOutput);
         }
 
         [TestMethod]
@@ -320,14 +320,14 @@ namespace TestProject
         public void ForLoopTest()
         {
             string program =
-                "for(int i = 0; i < 14; i++;)\r\n" +
+                "for(int i = 0; i < 14; i++)\r\n" +
                 "{\r\n" +
                 "\tprint(i);\r\n" +
                 "\tprint(\"Hello\");\r\n" +
                 "}\r\n" +
                 "\r\n" +
                 "int a = 2;\r\n" +
-                "for(a = 0; a < 14; a = a + 1;)\r\n" +
+                "for(a = 0; a < 14; a = a + 1)\r\n" +
                 "{\r\n" +
                 "\tprint(a);\r\n" +
                 "}";
@@ -550,7 +550,7 @@ namespace TestProject
             string program =
                 "void Foo(int a, string b)\r\n" +
                 "{\r\n" +
-                    "\tfor(int i = 0; i < a; i++;)\r\n" +
+                    "\tfor(int i = 0; i < a; i++)\r\n" +
                     "\t{\r\n" +
                         "\t\tprint(b);\r\n" +
                     "\t}\r\n" +
@@ -569,8 +569,40 @@ namespace TestProject
             Compile(program, name);
 
             CheckEntryPoint($"{name}.exe");
-            CheckOutput($"{name}.exe", expectedOutput);
             CheckMethodExists($"{name}.exe", "Foo");
+            CheckOutput($"{name}.exe", expectedOutput);
+        }
+
+
+        [TestMethod]
+        [DoNotParallelize]
+        public void FunctionReturnTest()
+        {
+            string program =
+                "int Pow(int a, int b)\r\n" +
+                "{\r\n" +
+                    "\tint result = 1;\r\n" +
+                    "\tfor(int i = 0; i < b; i++)\r\n" +
+                    "\t{\r\n" +
+                        "\t\tresult = result * a;\r\n" +
+                    "\t}\r\n" +
+                    "\treturn result;\r\n" +
+                "}\r\n" +
+                "\r\n" +
+                //"print(Pow(2, 3));\r\n";
+                "int a = Pow(2, 3);\r\n" +
+                "print(a);";
+
+            string expectedOutput =
+                "8\r\n";
+
+            string name = "FunctionReturn";
+
+            Compile(program, name);
+
+            CheckEntryPoint($"{name}.exe");
+            CheckMethodExists($"{name}.exe", "Pow");
+            CheckOutput($"{name}.exe", expectedOutput);
         }
     }
 }

@@ -1,5 +1,7 @@
 ﻿using Compiler.Tokens;
+using System;
 using System.Diagnostics;
+using System.Net.Mail;
 
 namespace Compiler
 {
@@ -94,26 +96,36 @@ namespace Compiler
         {
             List<string> messages = [];
             List<string> Labels = GetLabels(node, messages, []);
-            symbols = GetSymbols(node, messages, new(), [], Labels);
+            symbols = GetSymbols(node, messages, new(), [], Labels, default);
             ;
             labels = Labels;
             return messages;
         }
 
-        public Dictionary<string, VarInfo> GetSymbols(ParseNode node, List<string> messages, ScopeStack scopes, Dictionary<string, VarInfo> symbols, List<string> labels, int scope = 0)
+        public Dictionary<string, VarInfo> GetSymbols(ParseNode node,
+                                                      List<string> messages,
+                                                      ScopeStack scopes,
+                                                      Dictionary<string, VarInfo> symbols,
+                                                      List<string> labels,
+                                                      FuncInfo currFunc)
         {
             if (node is FunctionDeclaration funcy)
             {
                 if (scopes.TryGetFunc(funcy.Name, out _))
                 {
-                    messages.Add($"Variable '{funcy.Name}' already declared in scope. {funcy.Location.row}, {funcy.Location.column}");
+                    messages.Add($"Function '{funcy.Name}' already declared in scope. {funcy.Location.row}, {funcy.Location.column}");
                 }
                 else
                 {
-                    scopes.PushFunc(funcy.Name, new FuncInfo(funcy.ReturnType, funcy.Parameters.Select(x => new VarInfo(x.Type)).ToList()));
+                    FuncInfo newFunc = new FuncInfo(funcy.ReturnType, funcy.Parameters.Select(x => new VarInfo(x.Type)).ToList());
+                    scopes.PushFunc(funcy.Name, newFunc);
+                    foreach (FunctionParameter param in funcy.Parameters)
+                    {
+                        scopes.PushVar(param.Name, new VarInfo(param.Type));
+                    }
+                    //Set current function for return type checking
+                    currFunc = newFunc;
                 }
-
-                //Todo: check return type
             }
             else if (node is FunctionCall call)
             {
@@ -138,7 +150,8 @@ namespace Compiler
                             }
                         }
                     }
-                    return symbols;//skip type checking for now
+
+                    return symbols;
                 }
             }
             else if (node is VariableDeclaration decl)
@@ -157,7 +170,7 @@ namespace Compiler
                 {
                     if (decl.Children.Count > 1) throw new Exception("VarDecl has multiple values");
 
-                    CheckType(decl, decl.Type, messages, scopes);
+                    CheckType(decl, decl.Type, messages, scopes, currFunc);
                 }
             }
             else if (node is VariableAssignment assignment)
@@ -167,7 +180,7 @@ namespace Compiler
                     messages.Add($"Variable '{assignment.Name}' not declared in scope. {assignment.Location.row}, {assignment.Location.column}");
                 }
 
-                CheckType(assignment, value.Type, messages, scopes);
+                CheckType(assignment, value.Type, messages, scopes, currFunc);
             }
             else if (node is Incrementer incrementer)
             {
@@ -183,6 +196,31 @@ namespace Compiler
                     messages.Add($"Label '{@goto.LabelName}' not found. {@goto.Location.row}, {@goto.Location.column}");
                 }
             }
+            else if (node is ReturnStatement @return)
+            {
+                if (currFunc.Equals(default))
+                {
+                    messages.Add($"Return statement used outside of function. {@return.Location.row}, {@return.Location.column}");
+                }
+                else
+                {
+                    if (@return.Value is null && currFunc.ReturnType != "void")
+                    {
+                        messages.Add($"Return statement missing value. {@return.Location.row}, {@return.Location.column}");
+                    }
+                    else if (@return.Value is not null && currFunc.ReturnType == "void")
+                    {
+                        messages.Add($"Cannot return value from void function. {@return.Location.row}, {@return.Location.column}");
+                    }
+                    else
+                    {
+                        if (@return.Value is not null)
+                        {
+                            CheckType(@return.Value, currFunc.ReturnType, messages, scopes, currFunc);
+                        }
+                    }
+                }
+            }
             else if (node is ASTNode ast)
             {
                 if (ast.Token is Identifier id)
@@ -196,7 +234,7 @@ namespace Compiler
 
             if (node.TypeExpected != "")
             {
-                CheckType(node, node.TypeExpected, messages, scopes);
+                CheckType(node, node.TypeExpected, messages, scopes, currFunc);
             }
 
             foreach (var child in node.Children)
@@ -205,16 +243,9 @@ namespace Compiler
                 if (opensScope)
                 {
                     scopes.PushScope();
-                    if (node is FunctionDeclaration func)
-                    {
-                        foreach (FunctionParameter param in func.Parameters)
-                        {
-                            scopes.PushVar(param.Name, new VarInfo(param.Type));
-                        }
-                    }
                 }
 
-                GetSymbols((child as ParseNode)!, messages, scopes, symbols, labels);
+                GetSymbols((child as ParseNode)!, messages, scopes, symbols, labels, currFunc);
 
                 if (opensScope)
                 {
@@ -281,7 +312,7 @@ namespace Compiler
             messages.Add($"Unexpected type mismatch at {node.Token.Row}, {node.Token.Column}");
             return false;
         }
-        private void CheckType(ParseNode node, string type, List<string> messages, ScopeStack scopes)
+        private void CheckType(ParseNode node, string type, List<string> messages, ScopeStack scopes, FuncInfo currFunc)
         {
             if (node is ASTNode ast && ast.Children.Count == 0) //is terminal
             {
@@ -297,9 +328,26 @@ namespace Compiler
                         //if will get type checked when we get to that part of scope checking
                         //CheckType((child as ParseNode)!, nodey.TypeExpected, messages, scopes);
                     }
+                    else if (child is FunctionCall call)
+                    {
+                        if (!scopes.TryGetFunc(call.Name, out FuncInfo func))
+                        {
+                            messages.Add($"Function '{call.Name}' not found. {call.Location.row}, {call.Location.column}");
+                        }
+                        else
+                        {
+                            //type check return
+                            if (func.ReturnType != type)
+                            {
+                                messages.Add($"Function '{call.Name}' returns {func.ReturnType}, not {type}. {call.Location.row}, {call.Location.column}");
+                            }
+
+                            //parameters will be type checked automatically later
+                        }
+                    }
                     else
                     {
-                        CheckType((child as ParseNode)!, type, messages, scopes);
+                        CheckType((child as ParseNode)!, type, messages, scopes, currFunc);
                     }
                 }
             }

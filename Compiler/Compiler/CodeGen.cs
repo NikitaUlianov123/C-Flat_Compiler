@@ -58,6 +58,7 @@ namespace Compiler
             ["long"] = typeof(long),
             ["short"] = typeof(short),
             ["byte"] = typeof(byte),
+            ["void"] = typeof(void),
         };
 
         private static Dictionary<string, System.Reflection.Emit.Label> Labels = [];
@@ -99,7 +100,7 @@ namespace Compiler
                 {
                     var tempMethodBuilder = typeBuilder.DefineMethod(func.Name,
                         MethodAttributes.Public | MethodAttributes.Static,
-                        returnType: typeof(void),
+                        returnType: TypeMap[func.ReturnType],
                         parameterTypes: func.Parameters.Select(x => TypeMap[x.Type]).ToArray());
 
 
@@ -200,7 +201,7 @@ namespace Compiler
                 {
                     var body = (ast.Children[0] as ASTNode)!;
                     EmitMethodBody(il, body, locals, args, symbols, methods);
-                    if (body.Token is StringValue stringy)
+                    if (body.Token is StringValue)
                     {
                         il.Emit(OpCodes.Call, typeof(Console).GetMethod("WriteLine", [typeof(string)])!);
                     }
@@ -472,6 +473,17 @@ namespace Compiler
                 }
 
                 il.EmitCall(OpCodes.Call, methods[call.Name], null);
+                return;
+            }
+            else if (node is ReturnStatement @return)
+            {
+                if (@return.Value is not null)
+                {
+                    EmitMethodBody(il, @return.Value, locals, args, symbols, methods);
+                }
+
+                il.Emit(OpCodes.Ret);
+                return;
             }
 
             for (int i = 0; i < node.Children.Count; i++)

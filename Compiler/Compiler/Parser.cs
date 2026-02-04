@@ -18,36 +18,37 @@ namespace Compiler
             [typeof(Program)] = [[typeof(PossibleStatements), typeof(Program)],
                                  []],
             [typeof(PossibleStatements)] = [
-                                            [typeof(PrintStatement)],
-                                            [typeof(VariableExpr)],
+                                            [typeof(PrintStatement), typeof(Semicolon)],
+                                            [typeof(VariableExpr), typeof(Semicolon)],
                                             [typeof(IfStatement)],
                                             [typeof(IfntStatement)],
                                             [typeof(WhileLoop)],
                                             [typeof(ForLoop)],
                                             [typeof(Label)],
-                                            [typeof(GotoStatement)],
+                                            [typeof(GotoStatement), typeof(Semicolon)],
                                             [typeof(FunctionDeclaration)],
-                                            [typeof(FunctionCall)],
+                                            [typeof(FunctionCall), typeof(Semicolon)],
+                                            [typeof(ReturnStatement), typeof(Semicolon)],
                                             ],
 
-            [typeof(PrintStatement)] = [[typeof(PrintKeyword), typeof(OpenParenthesis), typeof(StringValue), typeof(CloseParenthesis), typeof(Semicolon)],//print("hello")
-                                        [typeof(PrintKeyword), typeof(OpenParenthesis), typeof(Identifier), typeof(CloseParenthesis), typeof(Semicolon)]],//print(a);
+            [typeof(PrintStatement)] = [[typeof(PrintKeyword), typeof(OpenParenthesis), typeof(StringValue), typeof(CloseParenthesis)],//print("hello")
+                                        [typeof(PrintKeyword), typeof(OpenParenthesis), typeof(Identifier), typeof(CloseParenthesis)]],//print(a)
 
-            [typeof(VariableExpr)] = [[typeof(VariableDeclaration)],
-                                      [typeof(VariableDeclarationAndAssignment)],
+            [typeof(VariableExpr)] = [[typeof(VariableDeclarationAndAssignment)],
+                                      [typeof(VariableDeclaration)],
                                       [typeof(VariableAssignment)]],
-            [typeof(VariableDeclaration)] = [[typeof(Identifier), typeof(Identifier), typeof(Semicolon)]], //int a;
-            [typeof(VariableDeclarationAndAssignment)] = [[typeof(Identifier), typeof(Identifier), typeof(AssignmentOperator), typeof(VariableValue), typeof(Semicolon)]],//int a = 5;
-            [typeof(VariableAssignment)] = [[typeof(Identifier), typeof(AssignmentOperator), typeof(VariableValue), typeof(Semicolon)],
-                                            [typeof(Incrementer)]],//a++; or --a;
+            [typeof(VariableDeclaration)] = [[typeof(Identifier), typeof(Identifier)]], //int a
+            [typeof(VariableDeclarationAndAssignment)] = [[typeof(Identifier), typeof(Identifier), typeof(AssignmentOperator), typeof(VariableValue)]],//int a = 5
+            [typeof(VariableAssignment)] = [[typeof(Identifier), typeof(AssignmentOperator), typeof(VariableValue)],//a = 5
+                                            [typeof(Incrementer)]],//a++ or --a
             [typeof(VariableValue)] = [[typeof(MathExpr)],
                                        [typeof(StringValue)],
-                                       [typeof(BoolLiteral)]],
+                                       [typeof(BoolExpr)]],
 
-            [typeof(Incrementer)] = [[typeof(Identifier), typeof(IncrementOperator), typeof(Semicolon)],
-                                     [typeof(Identifier), typeof(DecrementOperator), typeof(Semicolon)],
-                                     [typeof(IncrementOperator), typeof(Identifier), typeof(Semicolon)],
-                                     [typeof(DecrementOperator), typeof(Identifier), typeof(Semicolon)]],
+            [typeof(Incrementer)] = [[typeof(Identifier), typeof(IncrementOperator)],
+                                     [typeof(Identifier), typeof(DecrementOperator)],
+                                     [typeof(IncrementOperator), typeof(Identifier)],
+                                     [typeof(DecrementOperator), typeof(Identifier)]],
 
             #region Maph
             [typeof(MathExpr)] = [[typeof(MathTerm), typeof(MathExprTail)]],
@@ -63,6 +64,7 @@ namespace Compiler
             [typeof(MathFactor)] = [[typeof(OpenParenthesis), typeof(MathExpr), typeof(CloseParenthesis)],
                                     [typeof(NumericValue)],
                                     [typeof(ExpressionIncrementer)],
+                                    [typeof(FunctionCall)],
                                     [typeof(Identifier)]],
 
             [typeof(ExpressionIncrementer)] = [[typeof(Identifier), typeof(IncrementOperator)],//if you just say Incrementer, it will
@@ -83,23 +85,26 @@ namespace Compiler
             [typeof(WhileFollowUp)] = [[typeof(ElseKeyword), typeof(OpenCurlyBracket), typeof(Program), typeof(CloseCurlyBracket)],
                                     []],
 
-            [typeof(ForLoop)] = [[typeof(ForKeyword), typeof(OpenParenthesis), typeof(VariableAssignment), typeof(BoolExpr), typeof(Semicolon), typeof(VariableAssignment), typeof(CloseParenthesis), typeof(OpenCurlyBracket), typeof(Program), typeof(CloseCurlyBracket)],
-                                 [typeof(ForKeyword), typeof(OpenParenthesis), typeof(VariableDeclarationAndAssignment), typeof(BoolExpr), typeof(Semicolon), typeof(VariableAssignment), typeof(CloseParenthesis), typeof(OpenCurlyBracket), typeof(Program), typeof(CloseCurlyBracket)]],
+            [typeof(ForLoop)] = [[typeof(ForKeyword), typeof(OpenParenthesis), typeof(VariableDeclarationAndAssignment), typeof(Semicolon), typeof(BoolExpr), typeof(Semicolon), typeof(VariableAssignment), typeof(CloseParenthesis), typeof(OpenCurlyBracket), typeof(Program), typeof(CloseCurlyBracket)],
+                                 [typeof(ForKeyword), typeof(OpenParenthesis), typeof(VariableAssignment), typeof(Semicolon), typeof(BoolExpr), typeof(Semicolon), typeof(VariableAssignment), typeof(CloseParenthesis), typeof(OpenCurlyBracket), typeof(Program), typeof(CloseCurlyBracket)]],
 
-            [typeof(GotoStatement)] = [[typeof(GotoKeyword), typeof(Identifier), typeof(Semicolon)]],
+            [typeof(GotoStatement)] = [[typeof(GotoKeyword), typeof(Identifier)]],
             #endregion
 
             [typeof(FunctionDeclaration)] = [[typeof(Identifier), typeof(Identifier), typeof(OpenParenthesis), typeof(CloseParenthesis), typeof(OpenCurlyBracket), typeof(Program), typeof(CloseCurlyBracket)],//void Name(){code}
                                              [typeof(Identifier), typeof(Identifier), typeof(OpenParenthesis), typeof(FunctionParameter), typeof(CloseParenthesis), typeof(OpenCurlyBracket), typeof(Program), typeof(CloseCurlyBracket)]],//void Name(params){code}
 
-            [typeof(FunctionCall)] = [[typeof(Identifier), typeof(OpenParenthesis), typeof(CloseParenthesis), typeof(Semicolon)],//Name();
-                                      [typeof(Identifier), typeof(OpenParenthesis), typeof(FunctionCallParameter), typeof(CloseParenthesis), typeof(Semicolon)]],
+            [typeof(FunctionCall)] = [[typeof(Identifier), typeof(OpenParenthesis), typeof(CloseParenthesis)],//Name()
+                                      [typeof(Identifier), typeof(OpenParenthesis), typeof(FunctionCallParameter), typeof(CloseParenthesis)]],
 
             [typeof(FunctionParameter)] = [[typeof(Identifier), typeof(Identifier), typeof(Comma), typeof(FunctionParameter)],
                                            [typeof(Identifier), typeof(Identifier)]],
 
             [typeof(FunctionCallParameter)] = [[typeof(VariableValue), typeof(Comma), typeof(FunctionCallParameter)],
                                                [typeof(VariableValue)]],
+
+            [typeof(ReturnStatement)] = [[typeof(ReturnKeyword), typeof(VariableValue)],
+                                         [typeof(ReturnKeyword)]],
 
             #region bool
             [typeof(BoolExpr)] = [[typeof(BoolAndExpr), typeof(BoolOrExprTail)]],
@@ -159,9 +164,9 @@ namespace Compiler
 
             ParseNode? parse(Type nonTerminal, List<IToken> tokens)
             {
-                if (ParseNodes.ContainsKey(nonTerminal))
+                if (ParseNodes.TryGetValue(nonTerminal, out List<List<Type>>? value))
                 {
-                    foreach (var production in ParseNodes[nonTerminal])
+                    foreach (var production in value)
                     {
                         if (tokens.Count < production.Count) continue;
 
@@ -332,7 +337,19 @@ namespace Compiler
     }
 
     public record class Program() : ParseNode;
-    public record class PossibleStatements : ParseNode;
+    public record class PossibleStatements : ParseNode
+    {
+        public override ParseNode Hoist()
+        {
+            base.Hoist();
+
+            if (Children.Count > 1)
+            {
+                Children.RemoveAt(1);//remove ;
+            }
+            return this;
+        }
+    }
 
     public record class PrintStatement : ParseNode
     {
@@ -377,8 +394,6 @@ namespace Compiler
 
             Children.RemoveAt(0);//remove the assignment operator
 
-            Children.RemoveAt(Children.Count - 1);//remove the semicolon
-
             return this;
         }
     }
@@ -402,8 +417,6 @@ namespace Compiler
             {
                 Children.RemoveAt(0);//remove the assignment operator
             }
-
-            Children.RemoveAt(Children.Count - 1);//remove the semicolon
 
             return this;
         }
@@ -527,7 +540,7 @@ namespace Compiler
 
             IsIncrement = Children[0] is IncrementOperator;
 
-            Children.Clear();//remove the operator and maybe ';'
+            Children.Clear();//remove the operator
             TypeExpected = "int";
 
             return this;
@@ -696,16 +709,17 @@ namespace Compiler
         public override ParseNode Hoist()
         {
             base.Hoist();
-
+            //ForKeyword, OpenParenthesis, VariableDeclarationAndAssignment, Semicolon, BoolExpr, Semicolon, VariableAssignment, CloseParenthesis, OpenCurlyBracket, Program, CloseCurlyBracket
+            //   0               1                        2                      3          4         5              6                  7                8              9           10
             Location = ((Children[0] as IToken)!.Row, (Children[0] as IToken)!.Column);
 
             Initialization = Children[2] as ParseNode;
-            Condition = Children[3] as ParseNode;
-            Followup = Children[5] as ParseNode;
+            Condition = Children[4] as ParseNode;
+            Followup = Children[6] as ParseNode;
 
-            if (Children[8] is not CloseCurlyBracket)//if there is a body
+            if (Children[9] is not CloseCurlyBracket)//if there is a body
             {
-                Body = Children[8] as ParseNode;
+                Body = Children[9] as ParseNode;
             }
 
             Condition!.TypeExpected = "bool";//the condition should be a bool
@@ -818,9 +832,8 @@ namespace Compiler
                     Children[0] = param.Children[1];//replace with next param
                 }
             }
-            
-            Children.RemoveAt(0); //remove the close parenthesis
-            Children.RemoveAt(0); //remove the semicolon
+
+            Children.Clear();
 
             return this;
         }
@@ -863,6 +876,24 @@ namespace Compiler
             {
                 Children.RemoveAt(1);//remove the comma
             }
+
+            return this;
+        }
+    }
+
+    public record class ReturnStatement : ParseNode
+    {
+        public ParseNode? Value { get; private set; } = null;
+        public override ParseNode Hoist()
+        {
+            base.Hoist();
+
+            if (Children.Count > 1)
+            { 
+                Value = Children[1] as ParseNode;
+            }
+
+            Children.Clear();
 
             return this;
         }
