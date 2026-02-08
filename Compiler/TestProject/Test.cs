@@ -130,7 +130,6 @@ namespace TestProject
             ParseNode? twee;
 
             List<string> messages;
-            SemanticAnalyzer analyzer;
             //#############################
 
 
@@ -171,7 +170,6 @@ namespace TestProject
 
             if (messages.Count > 0) throw new Exception("Did not tokenize.");
 
-            analyzer = new SemanticAnalyzer();
             //messages = analyzer.Analyze(twee!);
             ;
         }
@@ -196,7 +194,7 @@ namespace TestProject
             return sb.ToString();
         }
 
-        private void CheckEntryPoint(string file)
+        private static void CheckEntryPoint(string file)
         {
             using var pe = new PEReader(File.OpenRead(file));
 
@@ -208,7 +206,7 @@ namespace TestProject
             // 0 means "no entry point"
             Assert.AreNotEqual(0, entry);
         }
-        private void CheckMethodExists(string file, string methodName)
+        private static void CheckMethodExists(string file, string methodName)
         {
             using var pe = new PEReader(File.OpenRead(file));
             Assert.IsTrue(pe.HasMetadata);
@@ -227,7 +225,7 @@ namespace TestProject
             Assert.IsTrue(found, $"Method '{methodName}' not found.");
         }
 
-        private void CheckOutput(string file, string expected)
+        private static void CheckOutput(string file, string expected)
         {
             var asm = Assembly.Load(File.ReadAllBytes(file));
             var entry = asm.EntryPoint;
@@ -246,10 +244,9 @@ namespace TestProject
             Assert.AreEqual(expected, output);
         }
 
-        private void Compile(string source, string assemblyName)
+        private static void Compile(string source, string assemblyName)
         {
             List<string> messages;
-            SemanticAnalyzer analyzer;
 
             bool success = Lexer.Lex(source, out List<IToken> result);
 
@@ -257,8 +254,7 @@ namespace TestProject
 
             if (messages.Count > 0) throw new Exception("Did not parse.");
 
-            analyzer = new SemanticAnalyzer();
-            messages = analyzer.Analyze(twee!, out var symbols, out var labels);
+            messages = SemanticAnalyzer.Analyze(twee!, out var symbols, out var labels);
 
             if (messages.Count > 0) throw new Exception("Did not pass analysis.");
 

@@ -35,6 +35,7 @@ Tokenized Features:
 ToDo Features:  
 function overloads  
 go away statement (break out of all loops)  
+do while and do for
 arrays  
 type inference?(var)  
 classes  

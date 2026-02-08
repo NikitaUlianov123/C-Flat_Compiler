@@ -13,7 +13,6 @@ namespace Test
             ParseNode? twee;
 
             List<string> messages;
-            SemanticAnalyzer analyzer;
             //#############################
 
             string program = File.ReadAllText(@"../../../Program.txt");
@@ -26,8 +25,7 @@ namespace Test
             if(messages.Count > 0) throw new Exception("Did not parse.");
 
 
-            analyzer = new SemanticAnalyzer();
-            messages = analyzer.Analyze(twee!, out var symbols, out var labels);
+            messages = SemanticAnalyzer.Analyze(twee!, out var symbols, out var labels);
             
             if (messages.Count > 0) throw new Exception("Did not pass analysis.");
 

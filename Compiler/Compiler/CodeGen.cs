@@ -72,7 +72,7 @@ namespace Compiler
 
             // Define the assembly and module
             var name = new AssemblyName(assemblyName);
-            PersistedAssemblyBuilder asmBuilder = new PersistedAssemblyBuilder(name, coreAssembly: typeof(object).Assembly, null);
+            PersistedAssemblyBuilder asmBuilder = new(name, coreAssembly: typeof(object).Assembly, null);
 
             var modBuilder = asmBuilder.DefineDynamicModule(assemblyName);
 

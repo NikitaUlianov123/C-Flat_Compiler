@@ -162,7 +162,7 @@ namespace Compiler
             return messages;
 
 
-            ParseNode? parse(Type nonTerminal, List<IToken> tokens)
+            static ParseNode? parse(Type nonTerminal, List<IToken> tokens)
             {
                 if (ParseNodes.TryGetValue(nonTerminal, out List<List<Type>>? value))
                 {
@@ -242,6 +242,7 @@ namespace Compiler
 
 
     //[DebuggerDisplay("{this.GetType().Name}")]
+    [AttributeUsage(AttributeTargets.Class)]
     public class OpensScopeAttribute : Attribute;
 
     public record class ParseNode

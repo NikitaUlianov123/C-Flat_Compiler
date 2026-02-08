@@ -6,13 +6,9 @@ using System.Net.Mail;
 namespace Compiler
 {
     [DebuggerDisplay("Type: {Type}")]
-    public struct VarInfo
+    public struct VarInfo(string type)
     {
-        public string Type;
-        public VarInfo(string type)
-        {
-            Type = type;
-        }
+        public string Type = type;
     }
     public struct FuncInfo
     {
@@ -85,14 +81,10 @@ namespace Compiler
         }
     }
 
-    public class SemanticAnalyzer
+    public static class SemanticAnalyzer
     {
-        public SemanticAnalyzer()
-        {
 
-        }
-
-        public List<string> Analyze(ParseNode node, out Dictionary<string, VarInfo> symbols, out List<string> labels)
+        public static List<string> Analyze(ParseNode node, out Dictionary<string, VarInfo> symbols, out List<string> labels)
         {
             List<string> messages = [];
             List<string> Labels = GetLabels(node, messages, []);
@@ -102,12 +94,12 @@ namespace Compiler
             return messages;
         }
 
-        public Dictionary<string, VarInfo> GetSymbols(ParseNode node,
-                                                      List<string> messages,
-                                                      ScopeStack scopes,
-                                                      Dictionary<string, VarInfo> symbols,
-                                                      List<string> labels,
-                                                      FuncInfo currFunc)
+        public static Dictionary<string, VarInfo> GetSymbols(ParseNode node,
+                                                             List<string> messages,
+                                                             ScopeStack scopes,
+                                                             Dictionary<string, VarInfo> symbols,
+                                                             List<string> labels,
+                                                             FuncInfo currFunc)
         {
             if (node is FunctionDeclaration funcy)
             {
@@ -117,7 +109,7 @@ namespace Compiler
                 }
                 else
                 {
-                    FuncInfo newFunc = new FuncInfo(funcy.ReturnType, funcy.Parameters.Select(x => new VarInfo(x.Type)).ToList());
+                    FuncInfo newFunc = new(funcy.ReturnType, funcy.Parameters.Select(x => new VarInfo(x.Type)).ToList());
                     scopes.PushFunc(funcy.Name, newFunc);
                     foreach (FunctionParameter param in funcy.Parameters)
                     {
@@ -256,7 +248,7 @@ namespace Compiler
             return symbols;
         }
 
-        private bool CheckTerminalType(ASTNode node, string type, List<string> messages, ScopeStack scopes)
+        private static bool CheckTerminalType(ASTNode node, string type, List<string> messages, ScopeStack scopes)
         {
             if (node.Token is Identifier id)
             {
@@ -312,7 +304,7 @@ namespace Compiler
             messages.Add($"Unexpected type mismatch at {node.Token.Row}, {node.Token.Column}");
             return false;
         }
-        private void CheckType(ParseNode node, string type, List<string> messages, ScopeStack scopes, FuncInfo currFunc)
+        private static void CheckType(ParseNode node, string type, List<string> messages, ScopeStack scopes, FuncInfo currFunc)
         {
             if (node is ASTNode ast && ast.Children.Count == 0) //is terminal
             {
@@ -353,7 +345,7 @@ namespace Compiler
             }
         }
 
-        private List<string> GetLabels(ParseNode node, List<string> messages, List<string> labels)
+        private static List<string> GetLabels(ParseNode node, List<string> messages, List<string> labels)
         {
             if (node is null) return labels;
 
