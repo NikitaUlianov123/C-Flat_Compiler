@@ -18,6 +18,7 @@ namespace Compiler
             [typeof(Program)] = [[typeof(PossibleStatements), typeof(Program)],
                                  []],
             [typeof(PossibleStatements)] = [
+                                            [typeof(ClassDeclaration)],
                                             [typeof(PrintStatement), typeof(Semicolon)],
                                             [typeof(VariableExpr), typeof(Semicolon)],
                                             [typeof(IfStatement)],
@@ -34,6 +35,7 @@ namespace Compiler
             [typeof(PrintStatement)] = [[typeof(PrintKeyword), typeof(OpenParenthesis), typeof(StringValue), typeof(CloseParenthesis)],//print("hello")
                                         [typeof(PrintKeyword), typeof(OpenParenthesis), typeof(Identifier), typeof(CloseParenthesis)]],//print(a)
 
+            #region Variables
             [typeof(VariableExpr)] = [[typeof(VariableDeclarationAndAssignment)],
                                       [typeof(VariableDeclaration)],
                                       [typeof(VariableAssignment)]],
@@ -49,6 +51,7 @@ namespace Compiler
                                      [typeof(Identifier), typeof(DecrementOperator)],
                                      [typeof(IncrementOperator), typeof(Identifier)],
                                      [typeof(DecrementOperator), typeof(Identifier)]],
+            #endregion
 
             #region Maph
             [typeof(MathExpr)] = [[typeof(MathTerm), typeof(MathExprTail)]],
@@ -91,6 +94,7 @@ namespace Compiler
             [typeof(GotoStatement)] = [[typeof(GotoKeyword), typeof(Identifier)]],
             #endregion
 
+            #region Functions
             [typeof(FunctionDeclaration)] = [[typeof(Identifier), typeof(Identifier), typeof(OpenParenthesis), typeof(CloseParenthesis), typeof(OpenCurlyBracket), typeof(Program), typeof(CloseCurlyBracket)],//void Name(){code}
                                              [typeof(Identifier), typeof(Identifier), typeof(OpenParenthesis), typeof(FunctionParameter), typeof(CloseParenthesis), typeof(OpenCurlyBracket), typeof(Program), typeof(CloseCurlyBracket)]],//void Name(params){code}
 
@@ -105,6 +109,11 @@ namespace Compiler
 
             [typeof(ReturnStatement)] = [[typeof(ReturnKeyword), typeof(VariableValue)],
                                          [typeof(ReturnKeyword)]],
+            #endregion
+
+            #region Classes
+            [ClassDeclaration]
+            #endregion
 
             #region bool
             [typeof(BoolExpr)] = [[typeof(BoolAndExpr), typeof(BoolOrExprTail)]],
@@ -352,6 +361,7 @@ namespace Compiler
         }
     }
 
+    #region Variables
     public record class PrintStatement : ParseNode
     {
         public override ParseNode Hoist()
@@ -425,6 +435,7 @@ namespace Compiler
     public record class VariableDeclarationAndAssignment : VariableDeclaration;
 
     public record class VariableValue : ParseNode;
+    #endregion
 
     #region Maph
     public record class MathExpr : ParseNode
@@ -751,6 +762,7 @@ namespace Compiler
     }
     #endregion
 
+    #region Functions
     [OpensScope]
     public record class FunctionDeclaration : ParseNode
     {
@@ -899,6 +911,12 @@ namespace Compiler
             return this;
         }
     }
+    #endregion
+
+    #region Classes
+    [OpensScope]
+    public record class ClassDeclaration : ParseNode;
+    #endregion
 
     #region bool
     public record class BoolExpr : ParseNode;

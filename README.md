@@ -33,13 +33,21 @@ CST'd Features:
 Tokenized Features:  
   
 ToDo Features:  
+classes  
+functions in classes  
+class function access modifiers
 function overloads  
+properties  
+inheritance  
+abstract classes  
+interfaces  
+static  
+generics  
+  
+string interpolation  
 go away statement (break out of all loops)  
 do while and do for
 arrays  
 type inference?(var)  
-classes  
-functions in classes  
-properties?  
-inheritance  
+delegates(func/action)  
 user input  

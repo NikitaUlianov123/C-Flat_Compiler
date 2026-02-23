@@ -39,6 +39,7 @@ namespace Compiler.Tokens
             [@"^false\b"] = (text, row, column) => new FalseKeyword(text, row, column),
             [@"^goto\b"] = (text, row, column) => new GotoKeyword(text, row, column),
             [@"^return\b"] = (text, row, column) => new ReturnKeyword(text, row, column),
+            [@"^class\b"] = (text, row, column) => new ClassKeyword(text, row, column),
 
             //Labels
             [@"^[A-Za-z_][A-Za-z0-9_]*:"] = (text, row, column) => new Label(text, row, column),
@@ -109,6 +110,7 @@ namespace Compiler.Tokens
     public record FalseKeyword(string Text, int Row, int Column) : IToken;
     public record GotoKeyword(string Text, int Row, int Column) : IToken;
     public record ReturnKeyword(string Text, int Row, int Column) : IToken;
+    public record ClassKeyword(string Text, int Row, int Column) : IToken;
     #endregion
     public record Label(string Text, int Row, int Column) : IToken
     { 
