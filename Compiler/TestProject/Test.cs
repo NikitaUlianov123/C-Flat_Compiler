@@ -600,5 +600,37 @@ namespace TestProject
             CheckMethodExists($"{name}.exe", "Pow");
             CheckOutput($"{name}.exe", expectedOutput);
         }
+
+        [TestMethod]
+        [DoNotParallelize]
+        public void ClassTest()
+        {
+            string program =
+                "Cat bob = new Cat(\"Bob\", 2);\r\n" +
+                "bob.Age = 3;\r\n" +
+                "print(bob.Name);\r\n" +
+                "\r\n" +
+                "class Cat\r\n" +
+                "{\r\n" +
+                    "\tstring Name;\r\n" +
+                    "\tint Age;\r\n" +
+                    "\t\r\n" +
+                    "\tCat(string name, int age)\r\n" +
+                    "\t{\r\n" +
+                        "\t\tName = name;\r\n" +
+                        "\t\tAge = age;\r\n" +
+                    "\t}\r\n" +
+                "}";
+
+            string expectedOutput =
+                "Bob\r\n";
+
+            string name = "Class";
+
+            Compile(program, name);
+
+            CheckEntryPoint($"{name}.exe");
+            CheckOutput($"{name}.exe", expectedOutput);
+        }
     }
 }

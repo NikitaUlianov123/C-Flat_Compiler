@@ -112,7 +112,19 @@ namespace Compiler
             #endregion
 
             #region Classes
-            [ClassDeclaration]
+            [typeof(ClassDeclaration)] = [[typeof(ClassKeyword), typeof(Identifier), typeof(OpenCurlyBracket), typeof(ClassBody), typeof(CloseCurlyBracket)]],//class Name { members }
+
+            [typeof(ClassBody)] = [[typeof(ClassMember), typeof(ClassBody)],
+                                   []],
+
+            [typeof(ClassMember)] = [[typeof(FunctionDeclaration)],
+                                     [typeof(ConstructorDeclaration)],
+                                     [typeof(VariableDeclarationAndAssignment), typeof(Semicolon)],
+                                     [typeof(VariableDeclaration), typeof(Semicolon)]],
+
+            [typeof(ConstructorDeclaration)] = [[typeof(Identifier), typeof(OpenParenthesis), typeof(CloseParenthesis), typeof(OpenCurlyBracket), typeof(Program), typeof(CloseCurlyBracket)],//Cat(){code}
+                                                [typeof(Identifier), typeof(OpenParenthesis), typeof(FunctionParameter), typeof(CloseParenthesis), typeof(OpenCurlyBracket), typeof(Program), typeof(CloseCurlyBracket)]],//Cat(params){code}
+
             #endregion
 
             #region bool
@@ -766,10 +778,10 @@ namespace Compiler
     [OpensScope]
     public record class FunctionDeclaration : ParseNode
     {
-        public string ReturnType { get; private set; } = "";
-        public string Name { get; private set; } = "";
+        public string ReturnType { get; protected set; } = "";
+        public string Name { get; protected set; } = "";
 
-        public List<FunctionParameter> Parameters { get; private set; } = [];
+        public List<FunctionParameter> Parameters { get; protected set; } = [];
 
 
         public override ParseNode Hoist()
@@ -915,7 +927,72 @@ namespace Compiler
 
     #region Classes
     [OpensScope]
-    public record class ClassDeclaration : ParseNode;
+    public record class ClassDeclaration : ParseNode
+    {
+        public string Name { get; private set; } = "";
+
+        public override ParseNode Hoist()
+        {
+            base.Hoist();
+
+            Location = ((Children[0] as IToken)!.Row, (Children[0] as IToken)!.Column);
+
+            Name = (Children[1] as IToken)!.Text;
+
+            int curr = 0;
+            Children.RemoveAt(curr); //remove the class keyword
+            Children.RemoveAt(curr); //remove the name
+            Children.RemoveAt(curr); //remove the open curly bracket
+
+            Children.RemoveAt(Children.Count - 1); //remove the close curly bracket
+
+            return this;
+        }
+    }
+
+    public record class ClassBody : ParseNode;
+    public record class ClassMember : ParseNode;
+
+    [OpensScope]
+    public record class ConstructorDeclaration : FunctionDeclaration
+    {
+        public override ParseNode Hoist()
+        {
+            Location = ((Children[0] as IToken)!.Row, (Children[0] as IToken)!.Column);
+
+            ReturnType = (Children[0] as IToken)!.Text;
+            Name = (Children[0] as IToken)!.Text;
+
+            int curr = 0;
+            Children.RemoveAt(curr); //remove the type
+            Children.RemoveAt(curr); //remove the open parenthesis
+
+            while ((Children[curr] as IToken) is not CloseParenthesis)//there are params
+            {
+                FunctionParameter param = (Children[curr] as FunctionParameter)!;
+                Parameters.Add(param);
+
+                if (param.Children.Count > 0)
+                {
+                    Children[curr] = param.Children[0];//replace with next param
+                }
+                else
+                {
+                    Children.RemoveAt(curr); //remove the close parenthesis
+                }
+            }
+            Children.RemoveAt(curr); //remove the close parenthesis
+            Children.RemoveAt(curr); //remove the open curly bracket
+
+            if ((Children[curr] as IToken) is not CloseParenthesis)//if there is a body
+            {
+                curr++;
+            }
+            Children.RemoveAt(curr); //remove the close curly bracket
+
+            return this;
+        }
+    }
     #endregion
 
     #region bool
