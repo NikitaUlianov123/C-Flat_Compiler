@@ -2,35 +2,21 @@
 using System;
 using System.Diagnostics;
 using System.Net.Mail;
+using System.Security.Claims;
+using System.Text;
+using System.Xml.Linq;
 
 namespace Compiler
 {
     [DebuggerDisplay("Type: {Type}")]
-    public struct VarInfo(string type)
+    public record struct VarInfo(string type);
+    public class Function(string Name, List<VarInfo> Parameters, string ReturnType)
     {
-        public string Type = type;
-    }
-    public struct FuncInfo
-    {
-        public string ReturnType;
-        public List<VarInfo> Parameters;
+        public string Name = Name;
+        public LinkedList<VarInfo> Parameters = new(Parameters);
+        public string ReturnType = ReturnType;
 
-        public FuncInfo(string returnType, List<VarInfo> parameters)
-        {
-            ReturnType = returnType;
-            Parameters = parameters;
-        }
-    }
-    public class ScopeStack
-    {
-        private List<Dictionary<string, VarInfo>> variables;
-        private List<Dictionary<string, FuncInfo>> functions;
-
-        public ScopeStack()
-        {
-            variables = [[]];
-            functions = [[]];
-        }
+        private List<Dictionary<string, VarInfo>> variables = [];
 
         public bool TryGetVar(string name, out VarInfo value)
         {
@@ -45,45 +31,137 @@ namespace Compiler
             return false;
         }
 
-        public bool TryGetFunc(string name, out FuncInfo value)
-        {
-            for (int i = functions.Count - 1; i >= 0; i--)
-            {
-                if (functions[i].TryGetValue(name, out value))
-                {
-                    return true;
-                }
-            }
-            value = default;
-            return false;
-        }
-
         public bool ContainsVar(string name) => variables.Any(scope => scope.ContainsKey(name));
-        public bool ContainsFunc(string name) => functions.Any(scope => scope.ContainsKey(name));
 
         public void PushVar(string symbol, VarInfo info) => variables.Last().Add(symbol, info);
-        public void PushVar(string symbol, VarInfo info, int scope) => variables[scope].Add(symbol, info);
-
-        public void PushFunc(string symbol, FuncInfo info) => functions[^2].Add(symbol, info);
-        //^2 because we want to add functions to the scope they're declared in, not the inside scope of the function
-        public void Pushfunc(string symbol, FuncInfo info, int scope) => functions[scope].Add(symbol, info);
 
         public void PushScope()
         {
             variables.Add([]);
-            functions.Add([]);
         }
 
         public void PopScope()
         {
             variables.RemoveAt(variables.Count - 1);
-            functions.RemoveAt(functions.Count - 1);
+        }
+
+        public virtual bool Equals(Function? info)
+        {
+            return info is not null &&
+                    Name == info.Name &&
+                    Parameters.SequenceEqual(info.Parameters) &&
+                    ReturnType == info.ReturnType;
+        }
+    }
+    public class ScopeStack
+    {
+        public class ClassInfo
+        {
+            public Dictionary<string, VarInfo> Fields;
+            public List<Function> Methods;
+            public ClassInfo()
+            {
+                Fields = [];
+                Methods = [];
+            }
+        }
+
+        private Dictionary<string, ClassInfo> classes = [];
+
+        private ClassInfo currClass;
+        private Function currFunc;
+
+        public List<string> Messages = [];
+        
+        public ScopeStack(List<string> messages)
+        {
+            Messages = messages;
+            currClass = new ClassInfo();//default, Program class
+            currFunc = new Function("Main", [], "void");//we are in Main by default, top level statement style
+        }
+
+        public void DeclareClass(string name, ClassInfo classInfo)
+        {
+            if (!classes.TryAdd(name, classInfo))
+            {
+                Messages.Add($"Class '{name}' already exists.");
+            }
+        }
+
+        public void AddMethod(Function func)
+        {
+            if (currClass.Methods.Contains(func))
+            {
+                StringBuilder sb = new StringBuilder();
+                sb.Append($"Method '{func.Name}' already exists in class '{currClass}' with parameters: ");
+                foreach (var param in func.Parameters)
+                {
+                    sb.Append($"{param.type}, ");
+                }
+                if (sb[^1] == ' ')
+                {
+                    sb.Remove(sb.Length - 2, 2); //remove last comma and space
+                    sb.Append('.');
+                }
+                Messages.Add(sb.ToString());
+            }
+            else
+            {
+                currClass.Methods.Add(func);
+            }
+        }
+        public void AddField(string name, VarInfo field)
+        {
+            if (currClass.Fields.ContainsKey(name))
+            {
+                Messages.Add($"Field '{name}' already exists in class '{currClass}'.");
+            }
+            else
+            {
+                currClass.Fields.Add(name, field);
+            }
+        }
+
+        public void CheckMethodCall(string name, List<VarInfo> parameters, ClassInfo? Class = null)
+        {
+            if (Class is null)
+            {
+                Class = currClass;
+            }
+
+            Function? method = Class.Methods.Find(x => x.Name == name && x.Parameters.SequenceEqual(parameters));
+            if (method is null)
+            { 
+                StringBuilder sb = new StringBuilder();
+                sb.Append($"No method '{name}' found in class '{Class}' with parameters: ");
+                foreach (var param in parameters)
+                {
+                    sb.Append($"{param.type}, ");
+                }
+                if (sb[^1] == ' ')
+                { 
+                    sb.Remove(sb.Length - 2, 2); //remove last comma and space
+                    sb.Append('.');
+                }
+                Messages.Add(sb.ToString());
+            }
+        }
+
+        public void CheckFieldAccess(string name, ClassInfo? Class = null)
+        {
+            if (Class is null)
+            {
+                Class = currClass;
+            }
+            if (!Class.Fields.ContainsKey(name))
+            {
+                Messages.Add($"No field '{name}' found in class '{Class}'.");
+            }
         }
     }
 
     public static class SemanticAnalyzer
     {
-
         public static List<string> Analyze(ParseNode node, out Dictionary<string, VarInfo> symbols, out List<string> labels)
         {
             List<string> messages = [];
