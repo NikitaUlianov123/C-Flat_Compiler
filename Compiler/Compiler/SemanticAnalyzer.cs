@@ -2,6 +2,7 @@
 using System;
 using System.Diagnostics;
 using System.Net.Mail;
+using System.Reflection.Emit;
 using System.Security.Claims;
 using System.Text;
 using System.Xml.Linq;
@@ -9,12 +10,13 @@ using System.Xml.Linq;
 namespace Compiler
 {
     [DebuggerDisplay("Type: {Type}")]
-    public record struct VarInfo(string type);
-    public class Function(string Name, List<VarInfo> Parameters, string ReturnType)
+    public record struct VarInfo(string Type);
+    public class Function(string Name, List<VarInfo> Parameters, string ReturnType, ClassInfo Owner)
     {
         public string Name = Name;
         public LinkedList<VarInfo> Parameters = new(Parameters);
         public string ReturnType = ReturnType;
+        public ClassInfo Owner = Owner;
 
         private List<Dictionary<string, VarInfo>> variables = [];
 
@@ -31,7 +33,8 @@ namespace Compiler
             return false;
         }
 
-        public bool ContainsVar(string name) => variables.Any(scope => scope.ContainsKey(name));
+        public bool ContainsVar(string name) => variables.Any(scope => scope.ContainsKey(name))
+                                                || Owner.Fields.ContainsKey(name);
 
         public void PushVar(string symbol, VarInfo info) => variables.Last().Add(symbol, info);
 
@@ -45,26 +48,34 @@ namespace Compiler
             variables.RemoveAt(variables.Count - 1);
         }
 
-        public virtual bool Equals(Function? info)
+        public override bool Equals(object? obj)
         {
-            return info is not null &&
-                    Name == info.Name &&
-                    Parameters.SequenceEqual(info.Parameters) &&
-                    ReturnType == info.ReturnType;
+            return obj is Function func &&
+                   Name == func.Name &&
+                   Parameters.SequenceEqual(func.Parameters) &&
+                   ReturnType == func.ReturnType &&
+                   Owner.Equals(func.Owner);
+        }
+    }
+    public class ClassInfo
+    {
+        public Dictionary<string, VarInfo> Fields;
+        public List<Function> Methods;
+        public ClassInfo()
+        {
+            Fields = [];
+            Methods = [];
+        }
+
+        public override bool Equals(object? obj)
+        {
+            return obj is ClassInfo info &&
+                   Fields.SequenceEqual(info.Fields) &&
+                   Methods.SequenceEqual(info.Methods);
         }
     }
     public class ScopeStack
     {
-        public class ClassInfo
-        {
-            public Dictionary<string, VarInfo> Fields;
-            public List<Function> Methods;
-            public ClassInfo()
-            {
-                Fields = [];
-                Methods = [];
-            }
-        }
 
         private Dictionary<string, ClassInfo> classes = [];
 
@@ -72,12 +83,12 @@ namespace Compiler
         private Function currFunc;
 
         public List<string> Messages = [];
-        
+
         public ScopeStack(List<string> messages)
         {
             Messages = messages;
             currClass = new ClassInfo();//default, Program class
-            currFunc = new Function("Main", [], "void");//we are in Main by default, top level statement style
+            currFunc = new Function("Main", [], "void", currClass);//we are in Main by default, top level statement style
         }
 
         public void DeclareClass(string name, ClassInfo classInfo)
@@ -86,17 +97,25 @@ namespace Compiler
             {
                 Messages.Add($"Class '{name}' already exists.");
             }
+            else
+            {
+                currClass = classInfo;
+            }
         }
-
-        public void AddMethod(Function func)
+        public void ChangeClass(string name)
         {
+            currClass = classes[name];
+        }
+        public void AddMethod(string Name, List<VarInfo> Parameters, string ReturnType)
+        {
+            Function func = new Function(Name, Parameters, ReturnType, currClass);
             if (currClass.Methods.Contains(func))
             {
                 StringBuilder sb = new StringBuilder();
                 sb.Append($"Method '{func.Name}' already exists in class '{currClass}' with parameters: ");
                 foreach (var param in func.Parameters)
                 {
-                    sb.Append($"{param.type}, ");
+                    sb.Append($"{param.Type}, ");
                 }
                 if (sb[^1] == ' ')
                 {
@@ -109,6 +128,10 @@ namespace Compiler
             {
                 currClass.Methods.Add(func);
             }
+        }
+        public void ChangeMethod(string name, List<VarInfo> parameters)
+        {
+            currFunc = currClass.Methods.Find(x => x.Name == name && x.Parameters.SequenceEqual(parameters))!;
         }
         public void AddField(string name, VarInfo field)
         {
@@ -131,15 +154,15 @@ namespace Compiler
 
             Function? method = Class.Methods.Find(x => x.Name == name && x.Parameters.SequenceEqual(parameters));
             if (method is null)
-            { 
+            {
                 StringBuilder sb = new StringBuilder();
                 sb.Append($"No method '{name}' found in class '{Class}' with parameters: ");
                 foreach (var param in parameters)
                 {
-                    sb.Append($"{param.type}, ");
+                    sb.Append($"{param.Type}, ");
                 }
                 if (sb[^1] == ' ')
-                { 
+                {
                     sb.Remove(sb.Length - 2, 2); //remove last comma and space
                     sb.Append('.');
                 }
@@ -158,6 +181,17 @@ namespace Compiler
                 Messages.Add($"No field '{name}' found in class '{Class}'.");
             }
         }
+
+
+        public bool TryGetVar(string name, out VarInfo value) => currFunc.TryGetVar(name, out value);
+
+        public bool ContainsVar(string name) => currFunc.ContainsVar(name);
+
+        public void PushVar(string symbol, VarInfo info) => currFunc.PushVar(symbol, info);
+
+        public void PushScope() => currFunc.PushScope();
+
+        public void PopScope() => currFunc.PopScope();
     }
 
     public static class SemanticAnalyzer
@@ -165,141 +199,141 @@ namespace Compiler
         public static List<string> Analyze(ParseNode node, out Dictionary<string, VarInfo> symbols, out List<string> labels)
         {
             List<string> messages = [];
-            List<string> Labels = GetLabels(node, messages, []);
-            symbols = GetSymbols(node, messages, new(), [], Labels, default);
-            ;
-            labels = Labels;
+            ScopeStack scopes = GetClasses(node, messages);
+
+
             return messages;
         }
 
-        public static Dictionary<string, VarInfo> GetSymbols(ParseNode node,
-                                                             List<string> messages,
-                                                             ScopeStack scopes,
-                                                             Dictionary<string, VarInfo> symbols,
-                                                             List<string> labels,
-                                                             FuncInfo currFunc)
+        private static ScopeStack GetClasses(ParseNode node, List<string> messages)
+        {
+            ScopeStack scopes = new(messages);
+
+            GetClasses(scopes);
+
+            return scopes;
+
+            void GetClasses(ScopeStack scopes)
+            {
+                if (node is null) return;
+
+                if (node is ClassDeclaration classy)
+                {
+                    scopes.DeclareClass(classy.Name, new ClassInfo());
+                }
+                foreach (var child in node.Children)
+                {
+                    if (child is FunctionDeclaration funcy)
+                    {
+                        scopes.AddMethod(funcy.Name, funcy.Parameters.Select(x => new VarInfo(x.Type)).ToList(), funcy.ReturnType);
+                    }
+                    else if (child is ConstructorDeclaration constr)
+                    {
+                        throw new NotImplementedException("Constructors not implemented yet");
+                    }
+                    else if (child is VariableDeclaration vari)
+                    {
+                        scopes.AddField(vari.Name, new VarInfo(vari.TypeExpected));
+                    }
+                    else
+                    {
+                        messages.Add($"Unexpected node type '{child.GetType()}' in class body. {(child as ASTNode)!.Location.row}, {(child as ASTNode)!.Location.column}");
+                    }
+                }
+
+            }
+        }
+
+        private static Dictionary<string, VarInfo> CheckFunctions(ParseNode node, List<string> messages, ScopeStack scopes)
         {
             if (node is FunctionDeclaration funcy)
             {
-                if (scopes.TryGetFunc(funcy.Name, out _))
-                {
-                    messages.Add($"Function '{funcy.Name}' already declared in scope. {funcy.Location.row}, {funcy.Location.column}");
-                }
-                else
-                {
-                    FuncInfo newFunc = new(funcy.ReturnType, funcy.Parameters.Select(x => new VarInfo(x.Type)).ToList());
-                    scopes.PushFunc(funcy.Name, newFunc);
-                    foreach (FunctionParameter param in funcy.Parameters)
-                    {
-                        scopes.PushVar(param.Name, new VarInfo(param.Type));
-                    }
-                    //Set current function for return type checking
-                    currFunc = newFunc;
-                }
+                scopes.ChangeMethod(funcy.Name, funcy.Parameters.Select(x => new VarInfo(x.Type)).ToList());
             }
-            else if (node is FunctionCall call)
+
+            void CheckFunctionBody()
             {
-                if (!scopes.TryGetFunc(call.Name, out FuncInfo func))
+                if (node is FunctionCall call)
                 {
-                    messages.Add($"Function '{call.Name}' not found. {call.Location.row}, {call.Location.column}");
+                    scopes.CheckMethodCall(call.Name, call.Parameters.Select(x => new VarInfo(x.TypeExpected)).ToList());
                 }
-                else
+                else if (node is VariableDeclaration decl)
                 {
-                    //Type check parameters
-                    if (call.Parameters.Count != func.Parameters.Count)
+                    if (scopes.TryGetVar(decl.Name, out _))
                     {
-                        messages.Add($"Incorrect number of parameters for {call.Name}. {call.Location.row}, {call.Location.column}");
+                        messages.Add($"Variable '{decl.Name}' already declared in scope. {decl.Location.row}, {decl.Location.column}");
                     }
                     else
                     {
-                        for (int i = 0; i < func.Parameters.Count; i++)
+                        scopes.PushVar(decl.Name, new VarInfo(decl.Type));
+                    }
+
+                    if (decl.Children.Count > 0)
+                    {
+                        if (decl.Children.Count > 1) throw new Exception("VarDecl has multiple values");
+
+                        CheckType(decl, decl.Type, messages, scopes, currFunc);
+                    }
+                }
+                else if (node is VariableAssignment assignment)
+                {
+                    if (!scopes.TryGetVar(assignment.Name, out VarInfo value))
+                    {
+                        messages.Add($"Variable '{assignment.Name}' not declared in scope. {assignment.Location.row}, {assignment.Location.column}");
+                    }
+
+                    CheckType(assignment, value.Type, messages, scopes, currFunc);
+                }
+                else if (node is Incrementer incrementer)
+                {
+                    if (!scopes.TryGetVar(incrementer.Name, out VarInfo value))
+                    {
+                        messages.Add($"Variable '{incrementer.Name}' not declared in scope. {incrementer.Location.row}, {incrementer.Location.column}");
+                    }
+                }
+                else if (node is GotoStatement @goto)
+                {
+                    if (!labels.Contains(@goto.LabelName))
+                    {
+                        messages.Add($"Label '{@goto.LabelName}' not found. {@goto.Location.row}, {@goto.Location.column}");
+                    }
+                }
+                else if (node is ReturnStatement @return)
+                {
+                    if (currFunc.Equals(default))
+                    {
+                        messages.Add($"Return statement used outside of function. {@return.Location.row}, {@return.Location.column}");
+                    }
+                    else
+                    {
+                        if (@return.Value is null && currFunc.ReturnType != "void")
                         {
-                            if (!CheckTerminalType(call.Parameters[i], func.Parameters[i].Type, messages, scopes))
+                            messages.Add($"Return statement missing value. {@return.Location.row}, {@return.Location.column}");
+                        }
+                        else if (@return.Value is not null && currFunc.ReturnType == "void")
+                        {
+                            messages.Add($"Cannot return value from void function. {@return.Location.row}, {@return.Location.column}");
+                        }
+                        else
+                        {
+                            if (@return.Value is not null)
                             {
-                                messages.Add($"Incorrect type for parameter {i}. {call.Location.row}, {call.Location.column}");
+                                CheckType(@return.Value, currFunc.ReturnType, messages, scopes, currFunc);
                             }
                         }
                     }
-
-                    return symbols;
                 }
-            }
-            else if (node is VariableDeclaration decl)
-            {
-                if (scopes.TryGetVar(decl.Name, out _))
+                else if (node is ASTNode ast)
                 {
-                    messages.Add($"Variable '{decl.Name}' already declared in scope. {decl.Location.row}, {decl.Location.column}");
-                }
-                else
-                {
-                    scopes.PushVar(decl.Name, new VarInfo(decl.Type));
-                    symbols.Add(decl.Name, new VarInfo(decl.Type));
-                }
-
-                if (decl.Children.Count > 0)
-                {
-                    if (decl.Children.Count > 1) throw new Exception("VarDecl has multiple values");
-
-                    CheckType(decl, decl.Type, messages, scopes, currFunc);
-                }
-            }
-            else if (node is VariableAssignment assignment)
-            {
-                if (!scopes.TryGetVar(assignment.Name, out VarInfo value))
-                {
-                    messages.Add($"Variable '{assignment.Name}' not declared in scope. {assignment.Location.row}, {assignment.Location.column}");
-                }
-
-                CheckType(assignment, value.Type, messages, scopes, currFunc);
-            }
-            else if (node is Incrementer incrementer)
-            {
-                if (!scopes.TryGetVar(incrementer.Name, out VarInfo value))
-                {
-                    messages.Add($"Variable '{incrementer.Name}' not declared in scope. {incrementer.Location.row}, {incrementer.Location.column}");
-                }
-            }
-            else if (node is GotoStatement @goto)
-            {
-                if (!labels.Contains(@goto.LabelName))
-                {
-                    messages.Add($"Label '{@goto.LabelName}' not found. {@goto.Location.row}, {@goto.Location.column}");
-                }
-            }
-            else if (node is ReturnStatement @return)
-            {
-                if (currFunc.Equals(default))
-                {
-                    messages.Add($"Return statement used outside of function. {@return.Location.row}, {@return.Location.column}");
-                }
-                else
-                {
-                    if (@return.Value is null && currFunc.ReturnType != "void")
+                    if (ast.Token is Identifier id)
                     {
-                        messages.Add($"Return statement missing value. {@return.Location.row}, {@return.Location.column}");
-                    }
-                    else if (@return.Value is not null && currFunc.ReturnType == "void")
-                    {
-                        messages.Add($"Cannot return value from void function. {@return.Location.row}, {@return.Location.column}");
-                    }
-                    else
-                    {
-                        if (@return.Value is not null)
+                        if (!scopes.ContainsVar(id.Text))
                         {
-                            CheckType(@return.Value, currFunc.ReturnType, messages, scopes, currFunc);
+                            messages.Add($"Variable '{id.Text}' not declared in scope. {id.Row}, {id.Column}");
                         }
                     }
                 }
-            }
-            else if (node is ASTNode ast)
-            {
-                if (ast.Token is Identifier id)
-                {
-                    if (!scopes.ContainsVar(id.Text))
-                    {
-                        messages.Add($"Variable '{id.Text}' not declared in scope. {id.Row}, {id.Column}");
-                    }
-                }
+
             }
 
             if (node.TypeExpected != "")
@@ -382,7 +416,7 @@ namespace Compiler
             messages.Add($"Unexpected type mismatch at {node.Token.Row}, {node.Token.Column}");
             return false;
         }
-        private static void CheckType(ParseNode node, string type, List<string> messages, ScopeStack scopes, FuncInfo currFunc)
+        private static void CheckType(ParseNode node, string type, List<string> messages, ScopeStack scopes)
         {
             if (node is ASTNode ast && ast.Children.Count == 0) //is terminal
             {

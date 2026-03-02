@@ -49,6 +49,7 @@ namespace Compiler.Tokens
             [@"^\)"] = (text, row, column) => new CloseParenthesis(text, row, column),
             [@"^;"] = (text, row, column) => new Semicolon(text, row, column),
             [@"^,"] = (text, row, column) => new Comma(text, row, column),
+            [@"^."] = (text, row, column) => new Dot(text, row, column),
             [@"^\{"] = (text, row, column) => new OpenCurlyBracket(text, row, column),
             [@"^\}"] = (text, row, column) => new CloseCurlyBracket(text, row, column),
 
@@ -122,6 +123,7 @@ namespace Compiler.Tokens
     public record CloseParenthesis(string Text, int Row, int Column) : IToken;
     public record Semicolon(string Text, int Row, int Column) : IToken;
     public record Comma(string Text, int Row, int Column) : IToken;
+    public record Dot(string Text, int Row, int Column) : IToken;
     public record OpenCurlyBracket(string Text, int Row, int Column) : IToken;
     public record CloseCurlyBracket(string Text, int Row, int Column) : IToken;
     #endregion

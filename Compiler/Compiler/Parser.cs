@@ -51,6 +51,9 @@ namespace Compiler
                                      [typeof(Identifier), typeof(DecrementOperator)],
                                      [typeof(IncrementOperator), typeof(Identifier)],
                                      [typeof(DecrementOperator), typeof(Identifier)]],
+
+            [typeof(VariableName)] = [[typeof(Identifier), typeof(Dot), typeof(VariableName)],
+                                      [typeof(Identifier)]],
             #endregion
 
             #region Maph
@@ -99,7 +102,9 @@ namespace Compiler
                                              [typeof(Identifier), typeof(Identifier), typeof(OpenParenthesis), typeof(FunctionParameter), typeof(CloseParenthesis), typeof(OpenCurlyBracket), typeof(Program), typeof(CloseCurlyBracket)]],//void Name(params){code}
 
             [typeof(FunctionCall)] = [[typeof(Identifier), typeof(OpenParenthesis), typeof(CloseParenthesis)],//Name()
-                                      [typeof(Identifier), typeof(OpenParenthesis), typeof(FunctionCallParameter), typeof(CloseParenthesis)]],
+                                      [typeof(Identifier), typeof(OpenParenthesis), typeof(FunctionCallParameter), typeof(CloseParenthesis)],//Name(params)
+                                      [typeof(Identifier), typeof(Dot), typeof(Identifier), typeof(OpenParenthesis), typeof(CloseParenthesis)],//Class.Name()
+                                      [typeof(Identifier), typeof(Dot), typeof(Identifier), typeof(OpenParenthesis), typeof(FunctionCallParameter), typeof(CloseParenthesis)]],//Class.Name(params)
 
             [typeof(FunctionParameter)] = [[typeof(Identifier), typeof(Identifier), typeof(Comma), typeof(FunctionParameter)],
                                            [typeof(Identifier), typeof(Identifier)]],
@@ -119,7 +124,7 @@ namespace Compiler
 
             [typeof(ClassMember)] = [[typeof(FunctionDeclaration)],
                                      [typeof(ConstructorDeclaration)],
-                                     [typeof(VariableDeclarationAndAssignment), typeof(Semicolon)],
+                                     //[typeof(VariableDeclarationAndAssignment), typeof(Semicolon)],
                                      [typeof(VariableDeclaration), typeof(Semicolon)]],
 
             [typeof(ConstructorDeclaration)] = [[typeof(Identifier), typeof(OpenParenthesis), typeof(CloseParenthesis), typeof(OpenCurlyBracket), typeof(Program), typeof(CloseCurlyBracket)],//Cat(){code}
@@ -447,6 +452,26 @@ namespace Compiler
     public record class VariableDeclarationAndAssignment : VariableDeclaration;
 
     public record class VariableValue : ParseNode;
+
+    public record class VariableName : ParseNode
+    {
+        public string Name { get; private set; } = "";
+        public string Owner { get; private set; } = "";//for class variables, the name of the class that owns it
+        public override ParseNode Hoist()
+        {
+            base.Hoist();
+            Location = ((Children[0] as IToken)!.Row, (Children[0] as IToken)!.Column);
+            if (Children.Count > 1)
+            { 
+                Owner = (Children[0] as IToken)!.Text;
+                Children.RemoveAt(0);
+                Children.RemoveAt(1);
+            }
+            Name = (Children[0] as IToken)!.Text;
+            Children.Clear();
+            return this;
+        }
+    }
     #endregion
 
     #region Maph
@@ -828,6 +853,7 @@ namespace Compiler
     public record class FunctionCall : ParseNode
     {
         public string Name { get; private set; } = "";
+        public string Owner { get; private set; } = "";
         public List<ASTNode> Parameters { get; private set; } = [];
 
         public override ParseNode Hoist()
@@ -835,6 +861,13 @@ namespace Compiler
             base.Hoist();
 
             Location = ((Children[0] as IToken)!.Row, (Children[0] as IToken)!.Column);
+
+            if (Children[1] is Dot)
+            { 
+                Owner = (Children[0] as IToken)!.Text;
+                Children.RemoveAt(0);//remove the owner
+                Children.RemoveAt(0);//remove the dot
+            }
 
             Name = (Children[0] as IToken)!.Text;
 
