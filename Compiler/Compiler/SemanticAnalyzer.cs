@@ -1,8 +1,9 @@
 ﻿using Compiler.Tokens;
 using System;
+using System.Buffers;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Net.Mail;
-using System.Reflection.Emit;
 using System.Security.Claims;
 using System.Text;
 using System.Xml.Linq;
@@ -19,6 +20,7 @@ namespace Compiler
         public ClassInfo Owner = Owner;
 
         private List<Dictionary<string, VarInfo>> variables = [];
+        public List<string> Labels = [];
 
         public bool TryGetVar(string name, out VarInfo value)
         {
@@ -56,15 +58,19 @@ namespace Compiler
                    ReturnType == func.ReturnType &&
                    Owner.Equals(func.Owner);
         }
+
+        public override int GetHashCode() => base.GetHashCode();//makes the warning go away
     }
     public class ClassInfo
     {
         public Dictionary<string, VarInfo> Fields;
         public List<Function> Methods;
-        public ClassInfo()
+        public string Name;
+        public ClassInfo(string name)
         {
             Fields = [];
             Methods = [];
+            Name = name;
         }
 
         public override bool Equals(object? obj)
@@ -73,29 +79,36 @@ namespace Compiler
                    Fields.SequenceEqual(info.Fields) &&
                    Methods.SequenceEqual(info.Methods);
         }
+
+        public bool TryGetFunc(string name, List<VarInfo> parameters, [NotNullWhen(true)] out Function? function)
+        {
+            function = Methods.Find(x => x.Name == name && x.Parameters.SequenceEqual(parameters));
+            return function != null;
+        }
+
+        public override int GetHashCode() => base.GetHashCode();//makes the warning go away
     }
     public class ScopeStack
     {
-
         private Dictionary<string, ClassInfo> classes = [];
 
         private ClassInfo currClass;
-        private Function currFunc;
+        public Function currFunc { get; private set; }
 
         public List<string> Messages = [];
 
         public ScopeStack(List<string> messages)
         {
             Messages = messages;
-            currClass = new ClassInfo();//default, Program class
+            currClass = new ClassInfo("Program");//default, Program class
             currFunc = new Function("Main", [], "void", currClass);//we are in Main by default, top level statement style
         }
 
-        public void DeclareClass(string name, ClassInfo classInfo)
+        public void DeclareClass(ClassInfo classInfo)
         {
-            if (!classes.TryAdd(name, classInfo))
+            if (!classes.TryAdd(classInfo.Name, classInfo))
             {
-                Messages.Add($"Class '{name}' already exists.");
+                Messages.Add($"Class '{classInfo.Name}' already exists.");
             }
             else
             {
@@ -135,13 +148,9 @@ namespace Compiler
         }
         public void AddField(string name, VarInfo field)
         {
-            if (currClass.Fields.ContainsKey(name))
+            if (!currClass.Fields.TryAdd(name, field))
             {
                 Messages.Add($"Field '{name}' already exists in class '{currClass}'.");
-            }
-            else
-            {
-                currClass.Fields.Add(name, field);
             }
         }
 
@@ -192,19 +201,46 @@ namespace Compiler
         public void PushScope() => currFunc.PushScope();
 
         public void PopScope() => currFunc.PopScope();
+        public bool TryGetFunc(string name, List<VarInfo> parameters, string owner, [NotNullWhen(true)] out Function? function)
+        {
+            if (owner == "")
+            {
+                if (!currClass.TryGetFunc(name, parameters, out function))
+                {
+                    Messages.Add($"No such function {name} in class {currClass}.");
+                    return false;
+                }
+                return true;
+            }
+
+            if (!classes.TryGetValue(owner, out var ownerClass))
+            {
+                function = null;
+                Messages.Add($"Class {owner} not found.");
+                return false;
+            }
+            return ownerClass.TryGetFunc(name, parameters, out function);
+        }
     }
 
     public static class SemanticAnalyzer
     {
-        public static List<string> Analyze(ParseNode node, out Dictionary<string, VarInfo> symbols, out List<string> labels)
+        public static List<string> Analyze(ParseNode node, out ScopeStack scopes)
         {
             List<string> messages = [];
-            ScopeStack scopes = GetClasses(node, messages);
-
+            scopes = GetClasses(node, messages);
+            CheckFunctions(node, messages, scopes);
 
             return messages;
         }
 
+        /// <summary>
+        /// Build the scope stack with all classes, methods, and fields.
+        /// This is necessary to do before checking any function bodies, because of the member access and function calls.
+        /// </summary>
+        /// <param name="node">Root of the entire parse tree</param>
+        /// <param name="messages"></param>
+        /// <returns></returns>
         private static ScopeStack GetClasses(ParseNode node, List<string> messages)
         {
             ScopeStack scopes = new(messages);
@@ -219,7 +255,7 @@ namespace Compiler
 
                 if (node is ClassDeclaration classy)
                 {
-                    scopes.DeclareClass(classy.Name, new ClassInfo());
+                    scopes.DeclareClass(new ClassInfo(classy.Name));
                 }
                 foreach (var child in node.Children)
                 {
@@ -244,20 +280,36 @@ namespace Compiler
             }
         }
 
-        private static Dictionary<string, VarInfo> CheckFunctions(ParseNode node, List<string> messages, ScopeStack scopes)
+
+        private static void CheckFunctions(ParseNode node, List<string> messages, ScopeStack scopes)
         {
             if (node is FunctionDeclaration funcy)
             {
                 scopes.ChangeMethod(funcy.Name, funcy.Parameters.Select(x => new VarInfo(x.Type)).ToList());
+                foreach (var child in funcy.Children)
+                {
+                    CheckFunctionBody((child as ParseNode)!);
+                }
+            }
+            else if (node is ClassDeclaration classy)
+            {
+                scopes.ChangeClass(classy.Name);
+            }
+            else
+            { 
+                foreach (var child in node.Children)
+                {
+                    CheckFunctions((child as ParseNode)!, messages, scopes);
+                }
             }
 
-            void CheckFunctionBody()
+            void CheckFunctionBody(ParseNode curr)
             {
-                if (node is FunctionCall call)
+                if (curr is FunctionCall call)
                 {
-                    scopes.CheckMethodCall(call.Name, call.Parameters.Select(x => new VarInfo(x.TypeExpected)).ToList());
+                    scopes.CheckMethodCall(call.Name, ConvertParams(call));
                 }
-                else if (node is VariableDeclaration decl)
+                else if (curr is VariableDeclaration decl)
                 {
                     if (scopes.TryGetVar(decl.Name, out _))
                     {
@@ -272,92 +324,62 @@ namespace Compiler
                     {
                         if (decl.Children.Count > 1) throw new Exception("VarDecl has multiple values");
 
-                        CheckType(decl, decl.Type, messages, scopes, currFunc);
+                        CheckType(decl, decl.Type, messages, scopes);
                     }
                 }
-                else if (node is VariableAssignment assignment)
+                else if (curr is VariableAssignment assignment)
                 {
                     if (!scopes.TryGetVar(assignment.Name, out VarInfo value))
                     {
                         messages.Add($"Variable '{assignment.Name}' not declared in scope. {assignment.Location.row}, {assignment.Location.column}");
                     }
 
-                    CheckType(assignment, value.Type, messages, scopes, currFunc);
+                    CheckType(assignment, value.Type, messages, scopes);
                 }
-                else if (node is Incrementer incrementer)
+                else if (curr is Incrementer incrementer)
                 {
                     if (!scopes.TryGetVar(incrementer.Name, out VarInfo value))
                     {
                         messages.Add($"Variable '{incrementer.Name}' not declared in scope. {incrementer.Location.row}, {incrementer.Location.column}");
                     }
                 }
-                else if (node is GotoStatement @goto)
+                else if (curr is GotoStatement @goto)
                 {
-                    if (!labels.Contains(@goto.LabelName))
+                    if (!scopes.currFunc.Labels.Contains(@goto.LabelName))
                     {
                         messages.Add($"Label '{@goto.LabelName}' not found. {@goto.Location.row}, {@goto.Location.column}");
                     }
                 }
-                else if (node is ReturnStatement @return)
+                else if (curr is ReturnStatement @return)
                 {
-                    if (currFunc.Equals(default))
+                    if (@return.Value is null && scopes.currFunc.ReturnType != "void")
                     {
-                        messages.Add($"Return statement used outside of function. {@return.Location.row}, {@return.Location.column}");
+                        messages.Add($"Return statement missing value. {@return.Location.row}, {@return.Location.column}");
+                    }
+                    else if (@return.Value is not null && scopes.currFunc.ReturnType == "void")
+                    {
+                        messages.Add($"Cannot return value from void function. {@return.Location.row}, {@return.Location.column}");
                     }
                     else
                     {
-                        if (@return.Value is null && currFunc.ReturnType != "void")
+                        if (@return.Value is not null)
                         {
-                            messages.Add($"Return statement missing value. {@return.Location.row}, {@return.Location.column}");
-                        }
-                        else if (@return.Value is not null && currFunc.ReturnType == "void")
-                        {
-                            messages.Add($"Cannot return value from void function. {@return.Location.row}, {@return.Location.column}");
-                        }
-                        else
-                        {
-                            if (@return.Value is not null)
-                            {
-                                CheckType(@return.Value, currFunc.ReturnType, messages, scopes, currFunc);
-                            }
+                            CheckType(@return.Value, scopes.currFunc.ReturnType, messages, scopes);
                         }
                     }
                 }
-                else if (node is ASTNode ast)
+                else if (curr is ASTNode ast)
                 {
-                    if (ast.Token is Identifier id)
-                    {
-                        if (!scopes.ContainsVar(id.Text))
-                        {
-                            messages.Add($"Variable '{id.Text}' not declared in scope. {id.Row}, {id.Column}");
-                        }
-                    }
-                }
-
-            }
-
-            if (node.TypeExpected != "")
-            {
-                CheckType(node, node.TypeExpected, messages, scopes, currFunc);
-            }
-
-            foreach (var child in node.Children)
-            {
-                bool opensScope = child.GetType().GetCustomAttributes(typeof(OpensScopeAttribute), true).Length > 0;
-                if (opensScope)
-                {
-                    scopes.PushScope();
-                }
-
-                GetSymbols((child as ParseNode)!, messages, scopes, symbols, labels, currFunc);
-
-                if (opensScope)
-                {
-                    scopes.PopScope();
+                    throw new NotImplementedException("see if this ever hits");
+                    //if (ast.Token is Identifier id)
+                    //{
+                    //    if (!scopes.ContainsVar(id.Text))
+                    //    {
+                    //        messages.Add($"Variable '{id.Text}' not declared in scope. {id.Row}, {id.Column}");
+                    //    }
+                    //}
                 }
             }
-
-            return symbols;
         }
 
         private static bool CheckTerminalType(ASTNode node, string type, List<string> messages, ScopeStack scopes)
@@ -434,7 +456,7 @@ namespace Compiler
                     }
                     else if (child is FunctionCall call)
                     {
-                        if (!scopes.TryGetFunc(call.Name, out FuncInfo func))
+                        if (!scopes.TryGetFunc(call.Name, ConvertParams(call), call.Owner, out Function? func))
                         {
                             messages.Add($"Function '{call.Name}' not found. {call.Location.row}, {call.Location.column}");
                         }
@@ -451,7 +473,7 @@ namespace Compiler
                     }
                     else
                     {
-                        CheckType((child as ParseNode)!, type, messages, scopes, currFunc);
+                        CheckType((child as ParseNode)!, type, messages, scopes);
                     }
                 }
             }
@@ -478,5 +500,7 @@ namespace Compiler
             }
             return labels;
         }
+
+        private static List<VarInfo> ConvertParams(FunctionCall call) => call.Parameters.Select(x => new VarInfo(x.TypeExpected)).ToList();
     }
 }

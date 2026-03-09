@@ -65,7 +65,7 @@ namespace Compiler
 
 
         public static string GenerateCode(ParseNode tree,
-                                          List<string> labels,
+                                          ScopeStack scopes,
                                           string assemblyName = "EmittedProgram")
         {
             string fileName = assemblyName + ".exe";

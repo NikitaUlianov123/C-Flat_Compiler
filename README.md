@@ -25,6 +25,9 @@ Semantic Analyzed Features:
   
   
 AST'd Features:  
+classes  
+functions in classes  
+function overloads  
   
   
 CST'd Features:  
@@ -33,10 +36,8 @@ CST'd Features:
 Tokenized Features:  
   
 ToDo Features:  
-classes  
-functions in classes  
+Refactor semantic analyzer with error writer
 class function access modifiers
-function overloads  
 properties  
 inheritance  
 abstract classes  

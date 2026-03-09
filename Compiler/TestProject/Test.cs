@@ -254,11 +254,11 @@ namespace TestProject
 
             if (messages.Count > 0) throw new Exception("Did not parse.");
 
-            messages = SemanticAnalyzer.Analyze(twee!, out var symbols, out var labels);
+            messages = SemanticAnalyzer.Analyze(twee!, out var scopes);
 
             if (messages.Count > 0) throw new Exception("Did not pass analysis.");
 
-            CodeGen.GenerateCode(twee!, labels, assemblyName);
+            CodeGen.GenerateCode(twee!, scopes, assemblyName);
         }
         #endregion
 
