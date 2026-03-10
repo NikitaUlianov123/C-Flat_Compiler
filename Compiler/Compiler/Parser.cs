@@ -187,6 +187,10 @@ namespace Compiler
             }
             root = MakeAST(root);
             root = root.Hoist();
+            if (root is not null && root.Children.Count == 1)
+            { 
+                root = root.Children[0] as ParseNode;
+            }
 
             return messages;
 
@@ -362,11 +366,26 @@ namespace Compiler
 
         public override string ToString()
         {
+            if (Token is null) return "NULL";
+
             return Token.Text;
         }
     }
 
-    public record class Program() : ParseNode;
+    public record class Program() : ParseNode
+    { 
+        public override ParseNode Hoist()
+        {
+            base.Hoist();
+
+            if (Children[1] is Program prog)
+            {
+                Children.RemoveAt(1);
+                Children.AddRange(prog.Children);
+            }
+            return this;
+        }
+    }
     public record class PossibleStatements : ParseNode
     {
         public override ParseNode Hoist()
@@ -377,7 +396,7 @@ namespace Compiler
             {
                 Children.RemoveAt(1);//remove ;
             }
-            return this;
+            return (Children[0] as ParseNode)!;
         }
     }
 
@@ -388,18 +407,17 @@ namespace Compiler
         {
             base.Hoist();
 
-            var result = new ASTNode((Children[0] as IToken)!);//the print keyword
+            Children.RemoveAt(0);//remove the print keyword
+            Children.RemoveAt(0);//remove the (
+            Children.RemoveAt(1);//remove the )
+
 
             //the stuff between the parens
-            if (Children[2] is StringValue)
+            if (Children[0] is StringValue)
             {
-                result.Children.Add(new ASTNode((Children[2] as IToken)!, "string"));
+                TypeExpected = "string";
             }
-            else
-            {
-                result.Children.Add(new ASTNode((Children[2] as IToken)!));
-            }
-            return result;
+            return this;
         }
     }
     public record class VariableExpr : ParseNode
@@ -413,14 +431,21 @@ namespace Compiler
     }
     public record class VariableAssignment : ParseNode
     {
-        public string Name { get; private set; } = "";
+        public VariableName? Name { get; private set; }
         public override ParseNode Hoist()
         {
             base.Hoist();
 
-            Location = ((Children[0] as IToken)!.Row, (Children[0] as IToken)!.Column);
+            Location = (Children[0] as ParseNode)!.Location;
 
-            Name = (Children[0] as IToken)!.Text;
+            if (Children[0] is VariableName vari)
+            {
+                Name = vari;
+            }
+            else
+            {
+                Name = new VariableName((Children[0] as ASTNode)!.Token.Text, "");
+            }
             Children.RemoveAt(0);//remove the name token
 
             Children.RemoveAt(0);//remove the assignment operator
@@ -430,7 +455,6 @@ namespace Compiler
     }
     public record class VariableDeclaration : ParseNode
     {
-        public string Type { get; private set; } = "";
         public string Name { get; private set; } = "";
         public override ParseNode Hoist()
         {
@@ -438,7 +462,7 @@ namespace Compiler
 
             Location = ((Children[0] as IToken)!.Row, (Children[0] as IToken)!.Column);
 
-            Type = (Children[0] as IToken)!.Text;
+            TypeExpected = (Children[0] as IToken)!.Text;
             Children.RemoveAt(0);//remove the type token
 
             Name = (Children[0] as IToken)!.Text;
@@ -458,8 +482,19 @@ namespace Compiler
 
     public record class VariableName : ParseNode
     {
+
         public string Name { get; private set; } = "";
         public string Owner { get; private set; } = "";//for class variables, the name of the class that owns it
+
+        public VariableName()
+        {
+        }
+        public VariableName(string name, string owner)
+        {
+            Name = name;
+            Owner = owner;
+        }
+
         public override ParseNode Hoist()
         {
             base.Hoist();
@@ -468,9 +503,9 @@ namespace Compiler
             { 
                 Owner = (Children[0] as IToken)!.Text;
                 Children.RemoveAt(0);
-                Children.RemoveAt(1);
+                Children.RemoveAt(0);//remove the dot
             }
-            Name = (Children[0] as IToken)!.Text;
+            Name = (Children[0] as ASTNode)!.Token.Text;
             Children.Clear();
             return this;
         }
@@ -572,7 +607,7 @@ namespace Compiler
     public record class Incrementer : ParseNode
     {
         public bool IsPre = false;
-        public string Name { get; private set; } = "";
+        public VariableName? Name { get; private set; }
         public bool IsIncrement = true;
         public override ParseNode Hoist()
         {
@@ -581,12 +616,12 @@ namespace Compiler
             if (Children[0] is not Identifier)
             {
                 IsPre = true;
-                Name = (Children[1] as IToken)!.Text;
+                Name = Children[1] as VariableName;
                 Children.RemoveAt(1);
             }
             else
             {
-                Name = (Children[0] as IToken)!.Text;
+                Name = Children[0] as VariableName;
                 Children.RemoveAt(0);
             }
 
@@ -975,19 +1010,47 @@ namespace Compiler
 
             Name = (Children[1] as IToken)!.Text;
 
-            int curr = 0;
-            Children.RemoveAt(curr); //remove the class keyword
-            Children.RemoveAt(curr); //remove the name
-            Children.RemoveAt(curr); //remove the open curly bracket
-
+            Children.RemoveAt(0); //remove the class keyword
+            Children.RemoveAt(0); //remove the name
+            Children.RemoveAt(0); //remove the open curly bracket
             Children.RemoveAt(Children.Count - 1); //remove the close curly bracket
+            if (Children[0] is ClassBody body)
+            {
+                Children.RemoveAt(0);
+                Children.AddRange(body.Children);
+            }
 
             return this;
         }
     }
 
-    public record class ClassBody : ParseNode;
-    public record class ClassMember : ParseNode;
+    public record class ClassBody : ParseNode
+    { 
+        public override ParseNode Hoist()
+        {
+            base.Hoist();
+
+            if (Children[1] is ClassBody body)
+            {
+                Children.RemoveAt(1);
+                Children.AddRange(body.Children);
+            }
+            return this;
+        }
+    }
+    public record class ClassMember : ParseNode
+    { 
+        public override ParseNode Hoist()
+        {
+            base.Hoist();
+
+            if (Children[^1] is Semicolon)
+            {
+                Children.RemoveAt(1);
+            }
+            return (Children[0] as ParseNode)!;
+        }
+    }
 
     [OpensScope]
     public record class ConstructorDeclaration : FunctionDeclaration

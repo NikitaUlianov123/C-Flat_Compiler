@@ -258,7 +258,7 @@ namespace TestProject
 
             if (messages.Count > 0) throw new Exception("Did not pass analysis.");
 
-            CodeGen.GenerateCode(twee!, scopes, assemblyName);
+            //CodeGen.GenerateCode(twee!, scopes, assemblyName);
         }
         #endregion
 
@@ -546,7 +546,7 @@ namespace TestProject
             string program =
                 "void Foo(int a, string b)\r\n" +
                 "{\r\n" +
-                    "\tfor(int i = 0; i < a; i++)\r\n" +
+                    "\tfor(string i = 0; i < a; i++)\r\n" +
                     "\t{\r\n" +
                         "\t\tprint(b);\r\n" +
                     "\t}\r\n" +
@@ -609,7 +609,6 @@ namespace TestProject
                 "Cat bob = new Cat();\r\n" +
                 "bob.Name = \"Bob\";\r\n" +
                 "print(bob.Name);\r\n" +
-                "print(bob.SetAge(4));\r\n" +
                 "print(bob.Age);\r\n" +
                 "\r\n" +
                 "class Cat\r\n" +

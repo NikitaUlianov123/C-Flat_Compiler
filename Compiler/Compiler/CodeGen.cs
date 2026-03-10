@@ -1,4 +1,4 @@
-﻿using Compiler.Tokens;
+﻿/*using Compiler.Tokens;
 
 using Microsoft.VisualBasic;
 
@@ -123,7 +123,7 @@ namespace Compiler
             }
 
             //Map labels
-            MapLabels(il, labels);
+            //MapLabels(il, labels);
 
             //code go here
             EmitMethodBody(il, tree, [], [], [], methods);
@@ -511,4 +511,4 @@ namespace Compiler
             }
         }
     }
-}
+}*/

@@ -22,12 +22,12 @@ return functions
   
   
 Semantic Analyzed Features:  
-  
-  
-AST'd Features:  
 classes  
 functions in classes  
 function overloads  
+  
+  
+AST'd Features:  
   
   
 CST'd Features:  
@@ -36,7 +36,6 @@ CST'd Features:
 Tokenized Features:  
   
 ToDo Features:  
-Refactor semantic analyzer with error writer
 class function access modifiers
 properties  
 inheritance  
@@ -52,3 +51,4 @@ arrays
 type inference?(var)  
 delegates(func/action)  
 user input  
+///////////////Type checking incomplete, eg doesn't type check for loops. Need to fix + write better tests

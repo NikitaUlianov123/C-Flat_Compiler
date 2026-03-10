@@ -50,7 +50,7 @@ namespace Compiler.Tokens
             [@"^\)"] = (text, row, column) => new CloseParenthesis(text, row, column),
             [@"^;"] = (text, row, column) => new Semicolon(text, row, column),
             [@"^,"] = (text, row, column) => new Comma(text, row, column),
-            [@"^."] = (text, row, column) => new Dot(text, row, column),
+            [@"^\."] = (text, row, column) => new Dot(text, row, column),
             [@"^\{"] = (text, row, column) => new OpenCurlyBracket(text, row, column),
             [@"^\}"] = (text, row, column) => new CloseCurlyBracket(text, row, column),
 

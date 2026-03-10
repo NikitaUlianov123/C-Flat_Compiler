@@ -1,4 +1,5 @@
 ﻿using Compiler.Tokens;
+
 using System;
 using System.Buffers;
 using System.Diagnostics;
@@ -43,18 +44,61 @@ namespace Compiler
     }
 
     [DebuggerDisplay("Type: {Type}")]
-    public record struct VarInfo(string Type);
-    public class Function(string Name, List<VarInfo> Parameters, string ReturnType, ClassInfo Owner)
+    public record struct VarInfo(string Type, ClassInfo? Class = null);
+    public class Function
     {
-        public string Name = Name;
-        public LinkedList<VarInfo> Parameters = new(Parameters);
-        public string ReturnType = ReturnType;
-        public ClassInfo Owner = Owner;
+        public string Name;
+        public List<VarInfo> Parameters;
+        public string ReturnType;
+        public ClassInfo Owner;
 
         private List<Dictionary<string, VarInfo>> variables = [];
         public List<string> Labels = [];
 
-        public bool TryGetVar(string name, out VarInfo value)
+        public Function(string name, List<(string name, VarInfo info)> parameters, string returnType, ClassInfo owner)
+        {
+            Name = name;
+            Parameters = [];
+            ReturnType = returnType;
+            Owner = owner;
+
+            foreach (var param in parameters)
+            {
+                Parameters.Add(param.info);
+                PushScope();
+                PushVar(param.name, param.info);
+            }
+        }
+
+        public bool TryGetVar(VariableName variable, out VarInfo value)
+        {
+            if (variable.Owner == "")
+            {
+                return TryGetLocalVar(variable.Name, out value);
+            }
+            else
+            {
+                VarInfo owner = default;
+                for (int i = variables.Count - 1; i >= 0; i--)
+                {
+                    if (variables[i].TryGetValue(variable.Owner, out owner))
+                    {
+                        break;
+                    }
+                }
+                if (owner == default && !Owner.Fields.TryGetValue(variable.Name, out owner))
+                {
+                    ErrorWriter.Add($"Variable '{variable.Owner}' not declared in scope.");
+                    value = default;
+                    return false;
+                }
+
+                return owner.Class!.Fields.TryGetValue(variable.Name, out value);
+
+            }
+        }
+
+        public bool TryGetLocalVar(string name, out VarInfo value)
         {
             for (int i = variables.Count - 1; i >= 0; i--)
             {
@@ -63,6 +107,12 @@ namespace Compiler
                     return true;
                 }
             }
+            if (Owner.Fields.TryGetValue(name, out value))
+            {
+                return true;
+            }
+
+            ErrorWriter.Add($"Variable '{name}' not declared in scope.");
             value = default;
             return false;
         }
@@ -107,7 +157,7 @@ namespace Compiler
             Name = name;
         }
 
-        public void AddMethod(string Name, List<VarInfo> Parameters, string ReturnType)
+        public void AddMethod(string Name, List<(string name, VarInfo info)> Parameters, string ReturnType)
         {
             Function func = new Function(Name, Parameters, ReturnType, this);
             if (Methods.Contains(func))
@@ -130,7 +180,7 @@ namespace Compiler
                 Methods.Add(func);
             }
         }
-        public void AddConstructor(List<VarInfo> Parameters)
+        public void AddConstructor(List<(string name, VarInfo info)> Parameters)
         {
             Function func = new Function($"{Name} constructor", Parameters, this.Name, this);
             if (Constructors.Contains(func))
@@ -230,6 +280,8 @@ namespace Compiler
         {
             currClass = new ClassInfo("Program");//default, Program class
             currFunc = new Function("Main", [], "void", currClass);//we are in Main by default, top level statement style
+            currClass.Methods.Add(currFunc);
+            classes.Add(currClass.Name, currClass);
         }
 
         public void DeclareClass(ClassInfo classInfo)
@@ -276,7 +328,7 @@ namespace Compiler
             }
         }
 
-        public bool TryGetVar(string name, out VarInfo value) => currFunc.TryGetVar(name, out value);
+        public bool TryGetVar(VariableName variable, out VarInfo value) => currFunc.TryGetVar(variable, out value);
         public bool ContainsVar(string name) => currFunc.ContainsVar(name);
         public void PushVar(string symbol, VarInfo info) => currFunc.PushVar(symbol, info);
 
@@ -315,7 +367,7 @@ namespace Compiler
             }
 
             if (!ownerClass.TryGetConstructor(parameters, out function))
-            { 
+            {
                 ErrorWriter.Add($"No such constructor in class {owner}.");
                 return false;
             }
@@ -359,32 +411,41 @@ namespace Compiler
             {
                 if (node is null) return;
 
-                if (node is ClassDeclaration classy)
+                //top level functions
+                foreach (FunctionDeclaration funcy in node.Children.Where(x => x is FunctionDeclaration))
                 {
-                    scopes.DeclareClass(new ClassInfo(classy.Name));
-                }
-                foreach (var child in node.Children)
-                {
-                    ErrorWriter.Move((child as ParseNode)!.Location);
-                    if (child is FunctionDeclaration funcy)
-                    {
-                        scopes.currClass.AddMethod(funcy.Name, funcy.Parameters.Select(x => new VarInfo(x.Type)).ToList(), funcy.ReturnType);
-                    }
-                    else if (child is ConstructorDeclaration constr)
-                    {
-                        scopes.currClass.AddConstructor(constr.Parameters.Select(x => new VarInfo(x.Type)).ToList());
-                    }
-                    else if (child is VariableDeclaration vari)
-                    {
-                        scopes.currClass.AddField(vari.Name, new VarInfo(vari.TypeExpected));
-                    }
-                    else
-                    {
-                        ErrorWriter.Add($"Unexpected node type '{child.GetType()}' in class body.");
-                    }
+                    ErrorWriter.Move(funcy.Location);
+
+                    scopes.currClass.AddMethod(funcy.Name, funcy.Parameters.Select(x => (x.Name, new VarInfo(x.Type))).ToList(), funcy.ReturnType);
+
                     ErrorWriter.MoveBack();
                 }
+                foreach (ClassDeclaration classy in node.Children.Where(x => x is ClassDeclaration))
+                {
+                    scopes.DeclareClass(new ClassInfo(classy.Name));
 
+                    foreach (var child in classy.Children)
+                    {
+                        ErrorWriter.Move((child as ParseNode)!.Location);
+                        if (child is FunctionDeclaration funcy)
+                        {
+                            scopes.currClass.AddMethod(funcy.Name, funcy.Parameters.Select(x => (x.Name, new VarInfo(x.Type))).ToList(), funcy.ReturnType);
+                        }
+                        else if (child is ConstructorDeclaration constr)
+                        {
+                            scopes.currClass.AddConstructor(constr.Parameters.Select(x => (x.Name, new VarInfo(x.Type))).ToList());
+                        }
+                        else if (child is VariableDeclaration vari)
+                        {
+                            scopes.currClass.AddField(vari.Name, new VarInfo(vari.TypeExpected));
+                        }
+                        else
+                        {
+                            ErrorWriter.Add($"Unexpected node type '{child.GetType()}' in class body.");
+                        }
+                        ErrorWriter.MoveBack();
+                    }
+                }
             }
         }
 
@@ -418,7 +479,7 @@ namespace Compiler
                 scopes.ChangeClass("Program");//reset to Program for top level statements
             }
             else
-            { 
+            {
                 foreach (var child in node.Children)
                 {
                     CheckFunctions((child as ParseNode)!, scopes);
@@ -436,25 +497,25 @@ namespace Compiler
                 }
                 else if (curr is VariableDeclaration decl)
                 {
-                    if (scopes.TryGetVar(decl.Name, out _))
+                    if (scopes.ContainsVar(decl.Name))
                     {
                         ErrorWriter.Add($"Variable '{decl.Name}' already declared in scope.");
                     }
                     else
                     {
-                        scopes.PushVar(decl.Name, new VarInfo(decl.Type));
+                        scopes.PushVar(decl.Name, new VarInfo(decl.TypeExpected));
                     }
 
                     if (decl.Children.Count > 0)
                     {
                         if (decl.Children.Count > 1) throw new Exception("VarDecl has multiple values");
 
-                        CheckType(decl, decl.Type, scopes);
+                        CheckType(decl, decl.TypeExpected, scopes);
                     }
                 }
                 else if (curr is VariableAssignment assignment)
                 {
-                    if (!scopes.TryGetVar(assignment.Name, out VarInfo value))
+                    if (!scopes.TryGetVar(assignment.Name!, out VarInfo value))
                     {
                         ErrorWriter.Add($"Variable '{assignment.Name}' not declared in scope.");
                     }
@@ -463,7 +524,7 @@ namespace Compiler
                 }
                 else if (curr is Incrementer incrementer)
                 {
-                    if (!scopes.TryGetVar(incrementer.Name, out VarInfo value))
+                    if (!scopes.TryGetVar(incrementer.Name!, out VarInfo value))
                     {
                         ErrorWriter.Add($"Variable '{incrementer.Name}' not declared in scope.");
                     }
@@ -493,16 +554,11 @@ namespace Compiler
                         }
                     }
                 }
-                else if (curr is ASTNode ast)
+
+
+                if (node.TypeExpected != "")
                 {
-                    throw new NotImplementedException("see if this ever hits");
-                    //if (ast.Token is Identifier id)
-                    //{
-                    //    if (!scopes.ContainsVar(id.Text))
-                    //    {
-                    //        messages.Add($"Variable '{id.Text}' not declared in scope. {id.Row}, {id.Column}");
-                    //    }
-                    //}
+                    CheckType(node, node.TypeExpected, scopes);
                 }
 
                 ErrorWriter.MoveBack();
@@ -569,9 +625,26 @@ namespace Compiler
         private static bool CheckTerminalType(ASTNode node, string type, ScopeStack scopes)
         {
             ErrorWriter.Move(node.Location);
-            if (node.Token is Identifier id)
+            if (node.Token is VariableName name)
             {
-                if (scopes.TryGetVar(id.Text, out var info))
+                if (scopes.TryGetVar(name, out var info))
+                {
+                    if (info.Type == type)
+                    {
+                        ErrorWriter.MoveBack();
+                        return true;
+                    }
+                    else
+                    {
+                        ErrorWriter.Add($"Expected type '{type}' but found '{(name.Owner == "" ? name.Name : name.Owner + '.' + name.Name)}'({info.Type}).");
+                        ErrorWriter.MoveBack();
+                        return false;
+                    }
+                }
+            }
+            else if (node.Token is Identifier id)
+            {
+                if (scopes.currFunc.TryGetLocalVar(id.Text, out var info))
                 {
                     if (info.Type == type)
                     {
