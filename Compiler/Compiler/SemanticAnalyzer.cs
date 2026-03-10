@@ -10,6 +10,38 @@ using System.Xml.Linq;
 
 namespace Compiler
 {
+    public static class ErrorWriter
+    {
+        public static List<string> Messages { get; private set; } = [];
+
+        private static Stack<(int Row, int Column)> Positions = [];
+
+        public static void Move(int row, int column)
+        {
+            Positions.Push((row, column));
+        }
+        public static void Move((int row, int column) location)
+        {
+            Positions.Push(location);
+        }
+        public static void MoveBack()
+        {
+            Positions.Pop();
+        }
+
+        public static void Add(string message)
+        {
+            var location = Positions.Peek();
+            Messages.Add($"{message} (Row {location.Row}, Column {location.Column})");
+        }
+
+        public static void Reset()
+        {
+            Messages.Clear();
+            Positions.Clear();
+        }
+    }
+
     [DebuggerDisplay("Type: {Type}")]
     public record struct VarInfo(string Type);
     public class Function(string Name, List<VarInfo> Parameters, string ReturnType, ClassInfo Owner)
@@ -65,19 +97,106 @@ namespace Compiler
     {
         public Dictionary<string, VarInfo> Fields;
         public List<Function> Methods;
+        public List<Function> Constructors;
         public string Name;
         public ClassInfo(string name)
         {
             Fields = [];
             Methods = [];
+            Constructors = [];
             Name = name;
         }
 
-        public override bool Equals(object? obj)
+        public void AddMethod(string Name, List<VarInfo> Parameters, string ReturnType)
         {
-            return obj is ClassInfo info &&
-                   Fields.SequenceEqual(info.Fields) &&
-                   Methods.SequenceEqual(info.Methods);
+            Function func = new Function(Name, Parameters, ReturnType, this);
+            if (Methods.Contains(func))
+            {
+                StringBuilder sb = new StringBuilder();
+                sb.Append($"Method '{func.Name}' already exists in class '{Name}' with parameters: ");
+                foreach (var param in func.Parameters)
+                {
+                    sb.Append($"{param.Type}, ");
+                }
+                if (sb[^1] == ' ')
+                {
+                    sb.Remove(sb.Length - 2, 2); //remove last comma and space
+                    sb.Append('.');
+                }
+                ErrorWriter.Add(sb.ToString());
+            }
+            else
+            {
+                Methods.Add(func);
+            }
+        }
+        public void AddConstructor(List<VarInfo> Parameters)
+        {
+            Function func = new Function($"{Name} constructor", Parameters, this.Name, this);
+            if (Constructors.Contains(func))
+            {
+                StringBuilder sb = new StringBuilder();
+                sb.Append($"Constructor already exists in class '{Name}' with parameters: ");
+                foreach (var param in func.Parameters)
+                {
+                    sb.Append($"{param.Type}, ");
+                }
+                if (sb[^1] == ' ')
+                {
+                    sb.Remove(sb.Length - 2, 2); //remove last comma and space
+                    sb.Append('.');
+                }
+                ErrorWriter.Add(sb.ToString());
+            }
+            else
+            {
+                Constructors.Add(func);
+            }
+        }
+        public void CheckMethodCall(string name, List<VarInfo> parameters)
+        {
+            Function? method = Methods.Find(x => x.Name == name && x.Parameters.SequenceEqual(parameters));
+            if (method is null)
+            {
+                StringBuilder sb = new StringBuilder();
+                sb.Append($"No method '{name}' found in class '{Name}' with parameters: ");
+                foreach (var param in parameters)
+                {
+                    sb.Append($"{param.Type}, ");
+                }
+                if (sb[^1] == ' ')
+                {
+                    sb.Remove(sb.Length - 2, 2); //remove last comma and space
+                    sb.Append('.');
+                }
+                ErrorWriter.Add(sb.ToString());
+            }
+        }
+        public void CheckConstructorCall(List<VarInfo> parameters)
+        {
+            Function? method = Methods.Find(x => x.Parameters.SequenceEqual(parameters));
+            if (method is null)
+            {
+                StringBuilder sb = new StringBuilder();
+                sb.Append($"No constructor found in class '{Name}' with parameters: ");
+                foreach (var param in parameters)
+                {
+                    sb.Append($"{param.Type}, ");
+                }
+                if (sb[^1] == ' ')
+                {
+                    sb.Remove(sb.Length - 2, 2); //remove last comma and space
+                    sb.Append('.');
+                }
+                ErrorWriter.Add(sb.ToString());
+            }
+        }
+        public void AddField(string name, VarInfo field)
+        {
+            if (!Fields.TryAdd(name, field))
+            {
+                ErrorWriter.Add($"Field '{name}' already exists in class '{Name}'.");
+            }
         }
 
         public bool TryGetFunc(string name, List<VarInfo> parameters, [NotNullWhen(true)] out Function? function)
@@ -85,21 +204,30 @@ namespace Compiler
             function = Methods.Find(x => x.Name == name && x.Parameters.SequenceEqual(parameters));
             return function != null;
         }
+        public bool TryGetConstructor(List<VarInfo> parameters, [NotNullWhen(true)] out Function? function)
+        {
+            function = Methods.Find(x => x.Parameters.SequenceEqual(parameters));
+            return function != null;
+        }
 
+
+        public override bool Equals(object? obj)
+        {
+            return obj is ClassInfo info &&
+                   Fields.SequenceEqual(info.Fields) &&
+                   Methods.SequenceEqual(info.Methods);
+        }
         public override int GetHashCode() => base.GetHashCode();//makes the warning go away
     }
     public class ScopeStack
     {
         private Dictionary<string, ClassInfo> classes = [];
 
-        private ClassInfo currClass;
+        public ClassInfo currClass { get; private set; }
         public Function currFunc { get; private set; }
 
-        public List<string> Messages = [];
-
-        public ScopeStack(List<string> messages)
+        public ScopeStack()
         {
-            Messages = messages;
             currClass = new ClassInfo("Program");//default, Program class
             currFunc = new Function("Main", [], "void", currClass);//we are in Main by default, top level statement style
         }
@@ -108,7 +236,7 @@ namespace Compiler
         {
             if (!classes.TryAdd(classInfo.Name, classInfo))
             {
-                Messages.Add($"Class '{classInfo.Name}' already exists.");
+                ErrorWriter.Add($"Class '{classInfo.Name}' already exists.");
             }
             else
             {
@@ -119,39 +247,13 @@ namespace Compiler
         {
             currClass = classes[name];
         }
-        public void AddMethod(string Name, List<VarInfo> Parameters, string ReturnType)
-        {
-            Function func = new Function(Name, Parameters, ReturnType, currClass);
-            if (currClass.Methods.Contains(func))
-            {
-                StringBuilder sb = new StringBuilder();
-                sb.Append($"Method '{func.Name}' already exists in class '{currClass}' with parameters: ");
-                foreach (var param in func.Parameters)
-                {
-                    sb.Append($"{param.Type}, ");
-                }
-                if (sb[^1] == ' ')
-                {
-                    sb.Remove(sb.Length - 2, 2); //remove last comma and space
-                    sb.Append('.');
-                }
-                Messages.Add(sb.ToString());
-            }
-            else
-            {
-                currClass.Methods.Add(func);
-            }
-        }
         public void ChangeMethod(string name, List<VarInfo> parameters)
         {
             currFunc = currClass.Methods.Find(x => x.Name == name && x.Parameters.SequenceEqual(parameters))!;
         }
-        public void AddField(string name, VarInfo field)
+        public void ChangeMethod(List<VarInfo> parameters)
         {
-            if (!currClass.Fields.TryAdd(name, field))
-            {
-                Messages.Add($"Field '{name}' already exists in class '{currClass}'.");
-            }
+            currFunc = currClass.Constructors.Find(x => x.Parameters.SequenceEqual(parameters))!;
         }
 
         public void CheckMethodCall(string name, List<VarInfo> parameters, ClassInfo? Class = null)
@@ -160,25 +262,8 @@ namespace Compiler
             {
                 Class = currClass;
             }
-
-            Function? method = Class.Methods.Find(x => x.Name == name && x.Parameters.SequenceEqual(parameters));
-            if (method is null)
-            {
-                StringBuilder sb = new StringBuilder();
-                sb.Append($"No method '{name}' found in class '{Class}' with parameters: ");
-                foreach (var param in parameters)
-                {
-                    sb.Append($"{param.Type}, ");
-                }
-                if (sb[^1] == ' ')
-                {
-                    sb.Remove(sb.Length - 2, 2); //remove last comma and space
-                    sb.Append('.');
-                }
-                Messages.Add(sb.ToString());
-            }
+            Class.CheckMethodCall(name, parameters);
         }
-
         public void CheckFieldAccess(string name, ClassInfo? Class = null)
         {
             if (Class is null)
@@ -187,27 +272,21 @@ namespace Compiler
             }
             if (!Class.Fields.ContainsKey(name))
             {
-                Messages.Add($"No field '{name}' found in class '{Class}'.");
+                ErrorWriter.Add($"No field '{name}' found in class '{Class}'.");
             }
         }
 
-
         public bool TryGetVar(string name, out VarInfo value) => currFunc.TryGetVar(name, out value);
-
         public bool ContainsVar(string name) => currFunc.ContainsVar(name);
-
         public void PushVar(string symbol, VarInfo info) => currFunc.PushVar(symbol, info);
 
-        public void PushScope() => currFunc.PushScope();
-
-        public void PopScope() => currFunc.PopScope();
         public bool TryGetFunc(string name, List<VarInfo> parameters, string owner, [NotNullWhen(true)] out Function? function)
         {
             if (owner == "")
             {
                 if (!currClass.TryGetFunc(name, parameters, out function))
                 {
-                    Messages.Add($"No such function {name} in class {currClass}.");
+                    ErrorWriter.Add($"No such function {name} in class {currClass}.");
                     return false;
                 }
                 return true;
@@ -216,22 +295,47 @@ namespace Compiler
             if (!classes.TryGetValue(owner, out var ownerClass))
             {
                 function = null;
-                Messages.Add($"Class {owner} not found.");
+                ErrorWriter.Add($"Class {owner} not found.");
                 return false;
             }
-            return ownerClass.TryGetFunc(name, parameters, out function);
+            if (!ownerClass.TryGetFunc(name, parameters, out function))
+            {
+                ErrorWriter.Add($"No such function {name} in class {owner}.");
+                return false;
+            }
+            return true;
         }
+        public bool TryGetConstructor(string owner, List<VarInfo> parameters, [NotNullWhen(true)] out Function? function)
+        {
+            if (!classes.TryGetValue(owner, out var ownerClass))
+            {
+                function = null;
+                ErrorWriter.Add($"Class {owner} not found.");
+                return false;
+            }
+
+            if (!ownerClass.TryGetConstructor(parameters, out function))
+            { 
+                ErrorWriter.Add($"No such constructor in class {owner}.");
+                return false;
+            }
+            return true;
+        }
+
+
+        public void PushScope() => currFunc.PushScope();
+        public void PopScope() => currFunc.PopScope();
     }
 
     public static class SemanticAnalyzer
     {
         public static List<string> Analyze(ParseNode node, out ScopeStack scopes)
         {
-            List<string> messages = [];
-            scopes = GetClasses(node, messages);
-            CheckFunctions(node, messages, scopes);
+            ErrorWriter.Reset();
+            scopes = GetClasses(node);
+            CheckFunctions(node, scopes);
 
-            return messages;
+            return ErrorWriter.Messages;
         }
 
         /// <summary>
@@ -241,12 +345,14 @@ namespace Compiler
         /// <param name="node">Root of the entire parse tree</param>
         /// <param name="messages"></param>
         /// <returns></returns>
-        private static ScopeStack GetClasses(ParseNode node, List<string> messages)
+        private static ScopeStack GetClasses(ParseNode node)
         {
-            ScopeStack scopes = new(messages);
+            ScopeStack scopes = new();
+            ErrorWriter.Move(node.Location);
 
             GetClasses(scopes);
 
+            ErrorWriter.MoveBack();
             return scopes;
 
             void GetClasses(ScopeStack scopes)
@@ -259,30 +365,33 @@ namespace Compiler
                 }
                 foreach (var child in node.Children)
                 {
+                    ErrorWriter.Move((child as ParseNode)!.Location);
                     if (child is FunctionDeclaration funcy)
                     {
-                        scopes.AddMethod(funcy.Name, funcy.Parameters.Select(x => new VarInfo(x.Type)).ToList(), funcy.ReturnType);
+                        scopes.currClass.AddMethod(funcy.Name, funcy.Parameters.Select(x => new VarInfo(x.Type)).ToList(), funcy.ReturnType);
                     }
                     else if (child is ConstructorDeclaration constr)
                     {
-                        throw new NotImplementedException("Constructors not implemented yet");
+                        scopes.currClass.AddConstructor(constr.Parameters.Select(x => new VarInfo(x.Type)).ToList());
                     }
                     else if (child is VariableDeclaration vari)
                     {
-                        scopes.AddField(vari.Name, new VarInfo(vari.TypeExpected));
+                        scopes.currClass.AddField(vari.Name, new VarInfo(vari.TypeExpected));
                     }
                     else
                     {
-                        messages.Add($"Unexpected node type '{child.GetType()}' in class body. {(child as ASTNode)!.Location.row}, {(child as ASTNode)!.Location.column}");
+                        ErrorWriter.Add($"Unexpected node type '{child.GetType()}' in class body.");
                     }
+                    ErrorWriter.MoveBack();
                 }
 
             }
         }
 
 
-        private static void CheckFunctions(ParseNode node, List<string> messages, ScopeStack scopes)
+        private static void CheckFunctions(ParseNode node, ScopeStack scopes)
         {
+            ErrorWriter.Move(node.Location);
             if (node is FunctionDeclaration funcy)
             {
                 scopes.ChangeMethod(funcy.Name, funcy.Parameters.Select(x => new VarInfo(x.Type)).ToList());
@@ -291,20 +400,36 @@ namespace Compiler
                     CheckFunctionBody((child as ParseNode)!);
                 }
             }
+            if (node is ConstructorDeclaration constr)
+            {
+                scopes.ChangeMethod(constr.Parameters.Select(x => new VarInfo(x.Type)).ToList());
+                foreach (var child in constr.Children)
+                {
+                    CheckFunctionBody((child as ParseNode)!);
+                }
+            }
             else if (node is ClassDeclaration classy)
             {
                 scopes.ChangeClass(classy.Name);
+                foreach (var child in node.Children)
+                {
+                    CheckFunctions((child as ParseNode)!, scopes);
+                }
+                scopes.ChangeClass("Program");//reset to Program for top level statements
             }
             else
             { 
                 foreach (var child in node.Children)
                 {
-                    CheckFunctions((child as ParseNode)!, messages, scopes);
+                    CheckFunctions((child as ParseNode)!, scopes);
                 }
             }
 
+            ErrorWriter.MoveBack();
+
             void CheckFunctionBody(ParseNode curr)
             {
+                ErrorWriter.Move(curr.Location);
                 if (curr is FunctionCall call)
                 {
                     scopes.CheckMethodCall(call.Name, ConvertParams(call));
@@ -313,7 +438,7 @@ namespace Compiler
                 {
                     if (scopes.TryGetVar(decl.Name, out _))
                     {
-                        messages.Add($"Variable '{decl.Name}' already declared in scope. {decl.Location.row}, {decl.Location.column}");
+                        ErrorWriter.Add($"Variable '{decl.Name}' already declared in scope.");
                     }
                     else
                     {
@@ -324,47 +449,47 @@ namespace Compiler
                     {
                         if (decl.Children.Count > 1) throw new Exception("VarDecl has multiple values");
 
-                        CheckType(decl, decl.Type, messages, scopes);
+                        CheckType(decl, decl.Type, scopes);
                     }
                 }
                 else if (curr is VariableAssignment assignment)
                 {
                     if (!scopes.TryGetVar(assignment.Name, out VarInfo value))
                     {
-                        messages.Add($"Variable '{assignment.Name}' not declared in scope. {assignment.Location.row}, {assignment.Location.column}");
+                        ErrorWriter.Add($"Variable '{assignment.Name}' not declared in scope.");
                     }
 
-                    CheckType(assignment, value.Type, messages, scopes);
+                    CheckType(assignment, value.Type, scopes);
                 }
                 else if (curr is Incrementer incrementer)
                 {
                     if (!scopes.TryGetVar(incrementer.Name, out VarInfo value))
                     {
-                        messages.Add($"Variable '{incrementer.Name}' not declared in scope. {incrementer.Location.row}, {incrementer.Location.column}");
+                        ErrorWriter.Add($"Variable '{incrementer.Name}' not declared in scope.");
                     }
                 }
                 else if (curr is GotoStatement @goto)
                 {
                     if (!scopes.currFunc.Labels.Contains(@goto.LabelName))
                     {
-                        messages.Add($"Label '{@goto.LabelName}' not found. {@goto.Location.row}, {@goto.Location.column}");
+                        ErrorWriter.Add($"Label '{@goto.LabelName}' not found.");
                     }
                 }
                 else if (curr is ReturnStatement @return)
                 {
                     if (@return.Value is null && scopes.currFunc.ReturnType != "void")
                     {
-                        messages.Add($"Return statement missing value. {@return.Location.row}, {@return.Location.column}");
+                        ErrorWriter.Add($"Return statement missing value.");
                     }
                     else if (@return.Value is not null && scopes.currFunc.ReturnType == "void")
                     {
-                        messages.Add($"Cannot return value from void function. {@return.Location.row}, {@return.Location.column}");
+                        ErrorWriter.Add($"Cannot return value from void function.");
                     }
                     else
                     {
                         if (@return.Value is not null)
                         {
-                            CheckType(@return.Value, scopes.currFunc.ReturnType, messages, scopes);
+                            CheckType(@return.Value, scopes.currFunc.ReturnType, scopes);
                         }
                     }
                 }
@@ -379,70 +504,17 @@ namespace Compiler
                     //    }
                     //}
                 }
+
+                ErrorWriter.MoveBack();
             }
         }
 
-        private static bool CheckTerminalType(ASTNode node, string type, List<string> messages, ScopeStack scopes)
+        private static void CheckType(ParseNode node, string type, ScopeStack scopes)
         {
-            if (node.Token is Identifier id)
-            {
-                if (scopes.TryGetVar(id.Text, out var info))
-                {
-                    if (info.Type == type)
-                    {
-                        return true;
-                    }
-                    else
-                    {
-                        messages.Add($"Expected type '{type}' but found '{id.Text}'({info.Type}) at {id.Row}, {id.Column}");
-                        return false;
-                    }
-                }
-            }
-            else if (node.Token is NumericValue)
-            {
-                if (type == "int")
-                {
-                    return true;
-                }
-                else
-                {
-                    messages.Add($"Expected type '{type}' but found int literal at {node.Location.row}, {node.Location.column}");
-                    return false;
-                }
-            }
-            else if (node.Token is StringValue)
-            {
-                if (type == "string")
-                {
-                    return true;
-                }
-                else
-                {
-                    messages.Add($"Expected type '{type}' but found string literal at {node.Location.row}, {node.Location.column}");
-                    return false;
-                }
-            }
-            else if (node.Token is BoolLiteral or TrueKeyword or FalseKeyword)
-            {
-                if (type == "bool")
-                {
-                    return true;
-                }
-                else
-                {
-                    messages.Add($"Expected type '{type}' but found bool literal at {node.Location.row}, {node.Location.column}");
-                    return false;
-                }
-            }
-            messages.Add($"Unexpected type mismatch at {node.Token.Row}, {node.Token.Column}");
-            return false;
-        }
-        private static void CheckType(ParseNode node, string type, List<string> messages, ScopeStack scopes)
-        {
+            ErrorWriter.Move(node.Location);
             if (node is ASTNode ast && ast.Children.Count == 0) //is terminal
             {
-                CheckTerminalType(ast, type, messages, scopes);
+                CheckTerminalType(ast, type, scopes);
             }
             else
             {
@@ -456,38 +528,121 @@ namespace Compiler
                     }
                     else if (child is FunctionCall call)
                     {
+                        ErrorWriter.Move(call.Location);
                         if (!scopes.TryGetFunc(call.Name, ConvertParams(call), call.Owner, out Function? func))
                         {
-                            messages.Add($"Function '{call.Name}' not found. {call.Location.row}, {call.Location.column}");
+                            ErrorWriter.Add($"Function '{call.Name}' not found.");
                         }
                         else
                         {
                             //type check return
                             if (func.ReturnType != type)
                             {
-                                messages.Add($"Function '{call.Name}' returns {func.ReturnType}, not {type}. {call.Location.row}, {call.Location.column}");
+                                ErrorWriter.Add($"Function '{call.Name}' returns {func.ReturnType}, not {type}.");
                             }
 
                             //parameters will be type checked automatically later
                         }
+                        ErrorWriter.MoveBack();
+                    }
+                    else if (child is ClassInstantiation inst)
+                    {
+                        ErrorWriter.Move(inst.Location);
+                        if (scopes.TryGetConstructor(inst.ClassName, ConvertParams(inst), out Function? func))
+                        {
+                            //type check instantiation
+                            if (inst.ClassName != type)
+                            {
+                                ErrorWriter.Add($"Instantiated a(n) {inst.ClassName}, not {type}.");
+                            }
+                        }
+                        ErrorWriter.MoveBack();
                     }
                     else
                     {
-                        CheckType((child as ParseNode)!, type, messages, scopes);
+                        CheckType((child as ParseNode)!, type, scopes);
                     }
                 }
             }
+            ErrorWriter.MoveBack();
+        }
+        private static bool CheckTerminalType(ASTNode node, string type, ScopeStack scopes)
+        {
+            ErrorWriter.Move(node.Location);
+            if (node.Token is Identifier id)
+            {
+                if (scopes.TryGetVar(id.Text, out var info))
+                {
+                    if (info.Type == type)
+                    {
+                        ErrorWriter.MoveBack();
+                        return true;
+                    }
+                    else
+                    {
+                        ErrorWriter.Add($"Expected type '{type}' but found '{id.Text}'({info.Type}).");
+                        ErrorWriter.MoveBack();
+                        return false;
+                    }
+                }
+            }
+            else if (node.Token is NumericValue)
+            {
+                if (type == "int")
+                {
+                    ErrorWriter.MoveBack();
+                    return true;
+                }
+                else
+                {
+                    ErrorWriter.Add($"Expected type '{type}' but found int literal.");
+                    ErrorWriter.MoveBack();
+                    return false;
+                }
+            }
+            else if (node.Token is StringValue)
+            {
+                if (type == "string")
+                {
+                    ErrorWriter.MoveBack();
+                    return true;
+                }
+                else
+                {
+                    ErrorWriter.Add($"Expected type '{type}' but found string literal.");
+                    ErrorWriter.MoveBack();
+                    return false;
+                }
+            }
+            else if (node.Token is BoolLiteral or TrueKeyword or FalseKeyword)
+            {
+                if (type == "bool")
+                {
+                    ErrorWriter.MoveBack();
+                    return true;
+                }
+                else
+                {
+                    ErrorWriter.Add($"Expected type '{type}' but found bool literal.");
+                    ErrorWriter.MoveBack();
+                    return false;
+                }
+            }
+            ErrorWriter.Add($"Unexpected type mismatch.");
+            ErrorWriter.MoveBack();
+            return false;
         }
 
-        private static List<string> GetLabels(ParseNode node, List<string> messages, List<string> labels)
+        private static List<string> GetLabels(ParseNode node, List<string> labels)
         {
             if (node is null) return labels;
 
+            ErrorWriter.Move(node.Location);
             if (node is ASTNode ast && ast.Token is Label label)
             {
                 if (labels.Contains(label.Name))
                 {
-                    messages.Add($"Label '{label.Name}' already declared. {label.Row}, {label.Column}");
+                    ErrorWriter.Add($"Label '{label.Name}' already declared.");
                 }
                 else
                 {
@@ -496,11 +651,13 @@ namespace Compiler
             }
             foreach (var child in node.Children)
             {
-                GetLabels((child as ParseNode)!, messages, labels);
+                GetLabels((child as ParseNode)!, labels);
             }
+            ErrorWriter.MoveBack();
             return labels;
         }
 
         private static List<VarInfo> ConvertParams(FunctionCall call) => call.Parameters.Select(x => new VarInfo(x.TypeExpected)).ToList();
+        private static List<VarInfo> ConvertParams(ClassInstantiation call) => call.Parameters.Select(x => new VarInfo(x.TypeExpected)).ToList();
     }
 }

@@ -33,7 +33,7 @@ namespace Compiler
                                             ],
 
             [typeof(PrintStatement)] = [[typeof(PrintKeyword), typeof(OpenParenthesis), typeof(StringValue), typeof(CloseParenthesis)],//print("hello")
-                                        [typeof(PrintKeyword), typeof(OpenParenthesis), typeof(Identifier), typeof(CloseParenthesis)]],//print(a)
+                                        [typeof(PrintKeyword), typeof(OpenParenthesis), typeof(VariableName), typeof(CloseParenthesis)]],//print(a)
 
             #region Variables
             [typeof(VariableExpr)] = [[typeof(VariableDeclarationAndAssignment)],
@@ -41,16 +41,17 @@ namespace Compiler
                                       [typeof(VariableAssignment)]],
             [typeof(VariableDeclaration)] = [[typeof(Identifier), typeof(Identifier)]], //int a
             [typeof(VariableDeclarationAndAssignment)] = [[typeof(Identifier), typeof(Identifier), typeof(AssignmentOperator), typeof(VariableValue)]],//int a = 5
-            [typeof(VariableAssignment)] = [[typeof(Identifier), typeof(AssignmentOperator), typeof(VariableValue)],//a = 5
+            [typeof(VariableAssignment)] = [[typeof(VariableName), typeof(AssignmentOperator), typeof(VariableValue)],//a = 5
                                             [typeof(Incrementer)]],//a++ or --a
             [typeof(VariableValue)] = [[typeof(MathExpr)],
                                        [typeof(StringValue)],
-                                       [typeof(BoolExpr)]],
+                                       [typeof(BoolExpr)],
+                                       [typeof(ClassInstantiation)]],
 
-            [typeof(Incrementer)] = [[typeof(Identifier), typeof(IncrementOperator)],
-                                     [typeof(Identifier), typeof(DecrementOperator)],
-                                     [typeof(IncrementOperator), typeof(Identifier)],
-                                     [typeof(DecrementOperator), typeof(Identifier)]],
+            [typeof(Incrementer)] = [[typeof(VariableName), typeof(IncrementOperator)],
+                                     [typeof(VariableName), typeof(DecrementOperator)],
+                                     [typeof(IncrementOperator), typeof(VariableName)],
+                                     [typeof(DecrementOperator), typeof(VariableName)]],
 
             [typeof(VariableName)] = [[typeof(Identifier), typeof(Dot), typeof(VariableName)],
                                       [typeof(Identifier)]],
@@ -71,12 +72,12 @@ namespace Compiler
                                     [typeof(NumericValue)],
                                     [typeof(ExpressionIncrementer)],
                                     [typeof(FunctionCall)],
-                                    [typeof(Identifier)]],
+                                    [typeof(VariableName)]],
 
-            [typeof(ExpressionIncrementer)] = [[typeof(Identifier), typeof(IncrementOperator)],//if you just say Incrementer, it will
-                                               [typeof(Identifier), typeof(DecrementOperator)],//make every ExpressionIncrementer
-                                               [typeof(IncrementOperator), typeof(Identifier)],//into an Incrementer during AST
-                                               [typeof(DecrementOperator), typeof(Identifier)]],//generation
+            [typeof(ExpressionIncrementer)] = [[typeof(VariableName), typeof(IncrementOperator)],//if you just say Incrementer, it will
+                                               [typeof(VariableName), typeof(DecrementOperator)],//make every ExpressionIncrementer
+                                               [typeof(IncrementOperator), typeof(VariableName)],//into an Incrementer during AST
+                                               [typeof(DecrementOperator), typeof(VariableName)]],//generation
             #endregion
 
             #region Flow control
@@ -130,6 +131,8 @@ namespace Compiler
             [typeof(ConstructorDeclaration)] = [[typeof(Identifier), typeof(OpenParenthesis), typeof(CloseParenthesis), typeof(OpenCurlyBracket), typeof(Program), typeof(CloseCurlyBracket)],//Cat(){code}
                                                 [typeof(Identifier), typeof(OpenParenthesis), typeof(FunctionParameter), typeof(CloseParenthesis), typeof(OpenCurlyBracket), typeof(Program), typeof(CloseCurlyBracket)]],//Cat(params){code}
 
+            [typeof(ClassInstantiation)] = [[typeof(NewKeyword), typeof(Identifier), typeof(OpenParenthesis), typeof(CloseParenthesis)],//new Cat()
+                                            [typeof(NewKeyword), typeof(Identifier), typeof(OpenParenthesis), typeof(FunctionCallParameter), typeof(CloseParenthesis)]],//new Cat(params)
             #endregion
 
             #region bool
@@ -143,7 +146,7 @@ namespace Compiler
                                     [typeof(OpenParenthesis), typeof(BoolExpr), typeof(CloseParenthesis)],
                                     [typeof(Comparison)],
                                     [typeof(BoolLiteral)],
-                                    [typeof(Identifier)]],
+                                    [typeof(VariableName)]],
             [typeof(Comparison)] = [[typeof(MathExpr), typeof(BoolRelativeOp), typeof(MathExpr)]],
             [typeof(BoolRelativeOp)] = [[typeof(LessThanOperator)],
                                         [typeof(LessThanOrEqualOperator)],
@@ -1023,6 +1026,38 @@ namespace Compiler
             }
             Children.RemoveAt(curr); //remove the close curly bracket
 
+            return this;
+        }
+    }
+
+    public record class ClassInstantiation : ParseNode
+    {
+        public string ClassName { get; private set; } = "";
+        public List<ASTNode> Parameters { get; private set; } = [];
+        public override ParseNode Hoist()
+        {
+            base.Hoist();
+            Location = ((Children[0] as IToken)!.Row, (Children[0] as IToken)!.Column);
+            Children.RemoveAt(0);//remove the new keyword
+            ClassName = (Children[0] as IToken)!.Text;
+            Children.RemoveAt(0); //remove the class name
+            Children.RemoveAt(0); //remove the open parenthesis
+            TypeExpected = ClassName;//the type of a class instantiation is the class
+            while ((Children[0] as IToken) is not CloseParenthesis)//there are params
+            {
+                if (Children[0] is ASTNode node)
+                {
+                    Parameters.Add(node);
+                    Children.RemoveAt(0);
+                }
+                else
+                {
+                    FunctionCallParameter param = (Children[0] as FunctionCallParameter)!;
+                    Parameters.Add((param.Children[0] as ASTNode)!);
+                    Children[0] = param.Children[1];//replace with next param
+                }
+            }
+            Children.Clear();
             return this;
         }
     }

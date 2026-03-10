@@ -85,8 +85,6 @@ namespace Compiler
                 returnType: typeof(void),
                 parameterTypes: Type.EmptyTypes);
 
-            // Mark as entry point
-            //methodBuilder
 
             var il = methodBuilder.GetILGenerator();
 
@@ -157,6 +155,16 @@ namespace Compiler
 
 
             return "";
+        }
+
+        private static void MakeClasses()
+        { 
+        
+        }
+
+        private static void MakeFunctions()
+        {
+
         }
 
         private static void EmitMethodBody(ILGenerator il,

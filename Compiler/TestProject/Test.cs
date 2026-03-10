@@ -606,6 +606,44 @@ namespace TestProject
         public void ClassTest()
         {
             string program =
+                "Cat bob = new Cat();\r\n" +
+                "bob.Name = \"Bob\";\r\n" +
+                "print(bob.Name);\r\n" +
+                "print(bob.SetAge(4));\r\n" +
+                "print(bob.Age);\r\n" +
+                "\r\n" +
+                "class Cat\r\n" +
+                "{\r\n" +
+                "    string Name;\r\n" +
+                "    int Age;\r\n" +
+                "    \r\n" +
+                "    void SetName(string name)\r\n" +
+                "    {\r\n" +
+                "        Name = name;\r\n" +
+                "    }\r\n" +
+                "    int SetAge(int age)\r\n" +
+                "    {\r\n" +
+                "        Age = age;\r\n" +
+                "        return age;\r\n" +
+                "    }\r\n" +
+                "}";
+
+            string expectedOutput =
+                "Bob\r\n";
+
+            string name = "Constructor";
+
+            Compile(program, name);
+
+            CheckEntryPoint($"{name}.exe");
+            CheckOutput($"{name}.exe", expectedOutput);
+        }
+
+        [TestMethod]
+        [DoNotParallelize]
+        public void ConstructorTest()
+        {
+            string program =
                 "Cat bob = new Cat(\"Bob\", 2);\r\n" +
                 "bob.Age = 3;\r\n" +
                 "print(bob.Name);\r\n" +
@@ -625,7 +663,7 @@ namespace TestProject
             string expectedOutput =
                 "Bob\r\n";
 
-            string name = "Class";
+            string name = "Constructor";
 
             Compile(program, name);
 
