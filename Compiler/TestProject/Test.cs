@@ -1,6 +1,8 @@
 ﻿using Compiler;
 using Compiler.Tokens;
 
+using Mono.Cecil;
+
 using System.Reflection;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
@@ -119,60 +121,351 @@ namespace TestProject
     }
 
     [TestClass]
+    [DoNotParallelize]
     public sealed class Semantic
     {
-        [TestMethod]
-        public void TypeTest()
+        public static void ValidTypeTest(string program)
         {
-            bool success;
-            List<IToken> result;
-
-            ParseNode? twee;
-
             List<string> messages;
-            //#############################
 
+            Assert.IsTrue(Lexer.Lex(program, out List<IToken> result));
 
-            success = Lexer.Lex(
-                                "int a = 2;\n" +
-                                "string b = \"Hi\";\n" +
-                                "bool c = true;\n" +
+            messages = Parser.Parse(result, out ParseNode? twee);
 
-                                "a = 1;\n" +
-                                "a = \"Bye\";\n" +
-                                "a = false;\n" +
-                                "a = b;\n" +
-                                "a = c;\n" +
+            if (messages.Count > 0) throw new Exception("Did not parse.");
 
-                                "b = 2;\n" +
-                                "b = \"Bye\";\n" +
-                                "b = true;\n" +
-                                "b = a;\n" +
-                                "b = c;\n" +
+            messages = SemanticAnalyzer.Analyze(twee!, out var scopes);
 
-                                "c = 14;\n" +
-                                "c = \"Hello\";\n" +
-                                "c = true;\n" +
-                                "c = a;\n" +
-                                "c = b;\n" +
-
-                                "if(a > b && c || b){}\n" +
-
-                                "print(a);\n" +
-                                "print(b);\n" +
-                                "print(c);\n" +
-                                "print(\"Hi\");\n"
-                                , out result);
-
-            messages = Parser.Parse(result, out twee);
-
-            ;
-
-            if (messages.Count > 0) throw new Exception("Did not tokenize.");
-
-            //messages = analyzer.Analyze(twee!);
-            ;
+            if (messages.Count > 0) throw new Exception("Did not pass analysis.");
         }
+        public static void TypeMismatchTest(string program)
+        {
+            List<string> messages;
+
+            Assert.IsTrue(Lexer.Lex(program, out List<IToken> result), "Did not tokenize.");
+
+            messages = Parser.Parse(result, out ParseNode? twee);
+
+            Assert.IsFalse(messages.Count > 0, "Did not parse.");
+
+            messages = SemanticAnalyzer.Analyze(twee!, out var scopes);
+
+            Assert.IsTrue(messages.Count > 0, "Type mismatch missed.");
+        }
+
+        #region Successful type checks
+        [TestMethod, TestCategory("Successful type check")]
+        public void StandardTypeTest()
+        {
+            string program =
+                "int a = 2;\n" +
+                "string b = \"Hi\";\n" +
+                "bool c = true;\n" +
+
+                "a = 1;\n" +
+                "b = \"Bye\";\n" +
+                "c = false;\n" +
+
+                "print(a);\n" +
+                "print(b);\n" +
+                "print(c);\n";
+            ValidTypeTest(program);
+        }
+        [TestMethod, TestCategory("Successful type check")]
+        public void FunctionParamTypeTest()
+        {
+            string program =
+                "Foo(4, \"Hello\");\r\n" +
+                "void Foo(int a, string b)\r\n" +
+                "{\r\n" +
+                    "\tfor(string i = 0; i < a; i++)\r\n" +
+                    "\t{\r\n" +
+                        "\t\tprint(b);\r\n" +
+                    "\t}\r\n" +
+                "}\r\n";
+            ValidTypeTest(program);
+        }
+        [TestMethod, TestCategory("Successful type check")]
+        public void FunctionReturnTypeTest()
+        {
+            string program =
+                "int a = Pow(2, 3);\r\n" +
+                "print(a);" +
+                "int Pow(int a, int b)\r\n" +
+                "{\r\n" +
+                    "\tint result = 1;\r\n" +
+                    "\tfor(int i = 0; i < b; i++)\r\n" +
+                    "\t{\r\n" +
+                        "\t\tresult = result * a;\r\n" +
+                    "\t}\r\n" +
+                    "\treturn result;\r\n" +
+                "}\r\n" +
+                "\r\n";
+            ValidTypeTest(program);
+        }
+
+        [TestMethod, TestCategory("Successful type check"), TestCategory("Classes")]
+        public void BasicClassTest()
+        {
+            string program =
+                "Cat bob = new Cat();\r\n" +
+                "bob.Name = \"Bob\";\r\n" +
+                "print(bob.Name);\r\n" +
+                "print(bob.Age);\r\n" +
+                "\r\n" +
+                "class Cat\r\n" +
+                "{\r\n" +
+                "    string Name;\r\n" +
+                "    int Age;\r\n" +
+                "    \r\n" +
+                "    void SetName(string name)\r\n" +
+                "    {\r\n" +
+                "        Name = name;\r\n" +
+                "    }\r\n" +
+                "    int SetAge(int age)\r\n" +
+                "    {\r\n" +
+                "        Age = age;\r\n" +
+                "        return age;\r\n" +
+                "    }\r\n" +
+                "}";
+            TypeMismatchTest(program);
+        }
+        #endregion
+
+
+        #region Basic type mismatch tests
+        /*
+        "int a = 2;\n" +
+        "string b = \"Hi\";\n" +
+        "bool c = true;\n" +
+
+        "a = 1;\n" +
+        "a = \"Bye\";\n" +
+        "a = false;\n" +
+        "a = b;\n" +
+        "a = c;\n" +
+
+        "b = 2;\n" +
+        "b = \"Bye\";\n" +
+        "b = true;\n" +
+        "b = a;\n" +
+        "b = c;\n" +
+
+        "c = 14;\n" +
+        "c = \"Hello\";\n" +
+        "c = true;\n" +
+        "c = a;\n" +
+        "c = b;\n" +
+
+        "if(a > b && c || b){}\n" +
+
+        "print(a);\n" +
+        "print(b);\n" +
+        "print(c);\n" +
+        "print(\"Hi\");\n"
+        */
+        [TestMethod, TestCategory("Standard type mismatch")]
+        public void InitIntWithBool()
+        {
+            string program = "int a = true;\n";
+            TypeMismatchTest(program);
+        }
+        [TestMethod, TestCategory("Standard type mismatch")]
+        public void InitIntWithString()
+        {
+            string program = "int a = \"Hi\";\n";
+            TypeMismatchTest(program);
+        }
+        [TestMethod, TestCategory("Standard type mismatch")]
+        public void SetIntToString()
+        {
+            string program =
+                "int a = 2;\n" +
+                "a = \"Bye\";\n";
+            TypeMismatchTest(program);
+        }
+        [TestMethod, TestCategory("Standard type mismatch")]
+        public void SetIntToBool()
+        {
+            string program =
+                "int a = 2;\n" +
+                "a = false;\n";
+            TypeMismatchTest(program);
+        }
+        [TestMethod, TestCategory("Standard type mismatch")]
+        public void SetIntToStringVar()
+        {
+            string program =
+                "int a = 2;\n" +
+                "string b = \"Hi\";\n" +
+                "a = b;\n";
+            TypeMismatchTest(program);
+        }
+        [TestMethod, TestCategory("Standard type mismatch")]
+        public void SetIntToBoolVar()
+        {
+            string program =
+                "int a = 2;\n" +
+                "bool c = true;\n" +
+                "a = c;\n";
+            TypeMismatchTest(program);
+        }
+        [TestMethod, TestCategory("Standard type mismatch")]
+        public void InitStringWithInt()
+        {
+            string program = "string b = 3;\n";
+            TypeMismatchTest(program);
+        }
+        [TestMethod, TestCategory("Standard type mismatch")]
+        public void InitStringWithBool()
+        {
+            string program = "string b = true;\n";
+            TypeMismatchTest(program);
+        }
+        [TestMethod, TestCategory("Standard type mismatch")]
+        public void SetStringToInt()
+        {
+            string program =
+                "string b = \"Hi\";\n" +
+                "b = 2;\n";
+            TypeMismatchTest(program);
+        }
+        [TestMethod, TestCategory("Standard type mismatch")]
+        public void SetStringToBool()
+        {
+            string program =
+                "string b = \"Hi\";\n" +
+                "b = false;\n";
+            TypeMismatchTest(program);
+        }
+        [TestMethod, TestCategory("Standard type mismatch")]
+        public void SetStringToIntVar()
+        {
+            string program =
+                "int a = 2;\n" +
+                "string b = \"Hi\";\n" +
+                "b = a;\n";
+            TypeMismatchTest(program);
+        }
+        [TestMethod, TestCategory("Standard type mismatch")]
+        public void SetStringToBoolVar()
+        {
+            string program =
+                "string b = \"Hi\";\n" +
+                "bool c = true;\n" +
+                "b = c;\n";
+            TypeMismatchTest(program);
+        }
+        [TestMethod, TestCategory("Standard type mismatch")]
+        public void InitBoolWithInt()
+        {
+            string program = "bool c = 3;\n";
+            TypeMismatchTest(program);
+        }
+        [TestMethod, TestCategory("Standard type mismatch")]
+        public void InitBoolWithString()
+        {
+            string program = "bool c = \"Hi\";\n";
+            TypeMismatchTest(program);
+        }
+        [TestMethod, TestCategory("Standard type mismatch")]
+        public void SetBoolToInt()
+        {
+            string program =
+                "bool c = true;\n" +
+                "c = 2;\n";
+            TypeMismatchTest(program);
+
+        }
+        [TestMethod, TestCategory("Standard type mismatch")]
+        public void SetBoolToString()
+        {
+            string program =
+                "bool c = true;\n" +
+                "c = \"Hi\";\n";
+            TypeMismatchTest(program);
+
+        }
+        [TestMethod, TestCategory("Standard type mismatch")]
+        public void SetBoolToIntVar()
+        {
+            string program =
+                "int a = 2;\n" +
+                "bool c = true;\n" +
+                "c = a;\n";
+            TypeMismatchTest(program);
+        }
+        [TestMethod, TestCategory("Standard type mismatch")]
+        public void SetBoolToStringVar()
+        {
+            string program =
+                "string b = \"Hi\";\n" +
+                "bool c = true;\n" +
+                "c = b;\n";
+            TypeMismatchTest(program);
+        }
+        #endregion
+
+        #region Function type mismatch
+        [TestMethod, TestCategory("Function type mismatch")]
+        public void FunctionParamTypeMismatchTest()
+        {
+            string program =
+                "Foo(4, true);\r\n" +
+                "void Foo(int a, string b)\r\n" +
+                "{\r\n" +
+                    "\tfor(string i = 0; i < a; i++)\r\n" +
+                    "\t{\r\n" +
+                        "\t\tprint(b);\r\n" +
+                    "\t}\r\n" +
+                "}\r\n";
+            TypeMismatchTest(program);
+        }
+        [TestMethod, TestCategory("Function type mismatch")]
+        public void FunctionReturnTypeMismatchTest()
+        {
+            string program =
+                "string a = Pow(2, 3);\r\n" +
+                "print(a);" +
+                "int Pow(int a, int b)\r\n" +
+                "{\r\n" +
+                    "\tint result = 1;\r\n" +
+                    "\tfor(int i = 0; i < b; i++)\r\n" +
+                    "\t{\r\n" +
+                        "\t\tresult = result * a;\r\n" +
+                    "\t}\r\n" +
+                    "\treturn result;\r\n" +
+                "}\r\n" +
+                "\r\n";
+            TypeMismatchTest(program);
+        }
+
+        [TestMethod, TestCategory("Function type mismatch"), TestCategory("Classes")]
+        public void FunctionReturnTypeInsideClassMismatchTest()
+        {
+            string program =
+                "Cat bob = new Cat();\r\n" +
+                "bob.Name = \"Bob\";\r\n" +
+                "string a = bob.SetAge(2);\r\n" +
+                "\r\n" +
+                "class Cat\r\n" +
+                "{\r\n" +
+                "    string Name;\r\n" +
+                "    int Age;\r\n" +
+                "    \r\n" +
+                "    void SetName(string name)\r\n" +
+                "    {\r\n" +
+                "        Name = name;\r\n" +
+                "    }\r\n" +
+                "    int SetAge(int age)\r\n" +
+                "    {\r\n" +
+                "        Age = age;\r\n" +
+                "        return age;\r\n" +
+                "    }\r\n" +
+                "}";
+            TypeMismatchTest(program);
+        }
+        #endregion
     }
 
     [TestClass]
@@ -266,11 +559,12 @@ namespace TestProject
         [DoNotParallelize]
         public void WhileElseTest()
         {
-            string program = 
+            string program =
                 "int x = 5;\n" +
                 "while(x < 3)\n" +
                 "{\n" +
-                "    x = x - 1;\n" +
+                "    x = x + 1;\n" +
+                "    print(\"Loop\");" +
                 "}\n" +
                 "else\n" +
                 "{\n" +
@@ -280,6 +574,28 @@ namespace TestProject
             string expectedOutput = "Done\r\n";
 
             string name = "WhileElse";
+
+            Compile(program, name);
+
+            CheckEntryPoint($"{name}.exe");
+            CheckOutput($"{name}.exe", expectedOutput);
+
+
+            program =
+                "int x = 1;\n" +
+                "while(x < 3)\n" +
+                "{\n" +
+                "    x = x + 1;\n" +
+                "    print(\"Loop\");" +
+                "}\n" +
+                "else\n" +
+                "{\n" +
+                "    print(\"Done\");\n" +
+                "}\n";
+
+            expectedOutput = "Loop\r\nLoop\r\n";
+
+            name = "WhileElse";
 
             Compile(program, name);
 
@@ -327,7 +643,7 @@ namespace TestProject
                 "{\r\n" +
                 "\tprint(a);\r\n" +
                 "}";
-            
+
             string expectedOutput =
                 "0\r\n" +
                 "Hello\r\n" +

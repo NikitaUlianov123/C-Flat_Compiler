@@ -61,11 +61,11 @@ namespace Compiler
             Parameters = [];
             ReturnType = returnType;
             Owner = owner;
+            PushScope();
 
             foreach (var param in parameters)
             {
                 Parameters.Add(param.info);
-                PushScope();
                 PushVar(param.name, param.info);
             }
         }
@@ -299,6 +299,10 @@ namespace Compiler
         {
             currClass = classes[name];
         }
+        public ClassInfo GetClass(string name)
+        {
+            return classes[name];
+        }
         public void ChangeMethod(string name, List<VarInfo> parameters)
         {
             currFunc = currClass.Methods.Find(x => x.Name == name && x.Parameters.SequenceEqual(parameters))!;
@@ -478,12 +482,20 @@ namespace Compiler
                 }
                 scopes.ChangeClass("Program");//reset to Program for top level statements
             }
-            else
+            else if (node is Program)
             {
                 foreach (var child in node.Children)
                 {
                     CheckFunctions((child as ParseNode)!, scopes);
                 }
+            }
+            else //we're in main
+            {
+                CheckFunctionBody(node);
+                //foreach (var child in node.Children)
+                //{
+                //    CheckFunctions((child as ParseNode)!, scopes);
+                //}
             }
 
             ErrorWriter.MoveBack();
@@ -493,7 +505,7 @@ namespace Compiler
                 ErrorWriter.Move(curr.Location);
                 if (curr is FunctionCall call)
                 {
-                    scopes.CheckMethodCall(call.Name, ConvertParams(call));
+                    scopes.CheckMethodCall(call.Name, ConvertParams(call, scopes));
                 }
                 else if (curr is VariableDeclaration decl)
                 {
@@ -503,24 +515,27 @@ namespace Compiler
                     }
                     else
                     {
-                        scopes.PushVar(decl.Name, new VarInfo(decl.TypeExpected));
-                    }
 
-                    if (decl.Children.Count > 0)
-                    {
-                        if (decl.Children.Count > 1) throw new Exception("VarDecl has multiple values");
-
-                        CheckType(decl, decl.TypeExpected, scopes);
+                        if (decl.Children.Count > 0 && decl.Children[0] is ClassInstantiation inst)
+                        {
+                            scopes.PushVar(decl.Name, new VarInfo(decl.TypeExpected, scopes.GetClass(inst.ClassName)));
+                        }
+                        else
+                        {
+                            scopes.PushVar(decl.Name, new VarInfo(decl.TypeExpected));
+                        }
                     }
                 }
                 else if (curr is VariableAssignment assignment)
                 {
-                    if (!scopes.TryGetVar(assignment.Name!, out VarInfo value))
+                    if (scopes.TryGetVar(assignment.Name!, out VarInfo value))
+                    {
+                        CheckType((assignment.Children[0] as ParseNode)!, value.Type, scopes);
+                    }
+                    else
                     {
                         ErrorWriter.Add($"Variable '{assignment.Name}' not declared in scope.");
                     }
-
-                    CheckType(assignment, value.Type, scopes);
                 }
                 else if (curr is Incrementer incrementer)
                 {
@@ -585,7 +600,7 @@ namespace Compiler
                     else if (child is FunctionCall call)
                     {
                         ErrorWriter.Move(call.Location);
-                        if (!scopes.TryGetFunc(call.Name, ConvertParams(call), call.Owner, out Function? func))
+                        if (!scopes.TryGetFunc(call.Name, ConvertParams(call, scopes), call.Owner, out Function? func))
                         {
                             ErrorWriter.Add($"Function '{call.Name}' not found.");
                         }
@@ -604,7 +619,7 @@ namespace Compiler
                     else if (child is ClassInstantiation inst)
                     {
                         ErrorWriter.Move(inst.Location);
-                        if (scopes.TryGetConstructor(inst.ClassName, ConvertParams(inst), out Function? func))
+                        if (scopes.TryGetConstructor(inst.ClassName, ConvertParams(inst, scopes), out Function? func))
                         {
                             //type check instantiation
                             if (inst.ClassName != type)
@@ -705,6 +720,48 @@ namespace Compiler
             ErrorWriter.MoveBack();
             return false;
         }
+        private static VarInfo GetTerminalType(ASTNode node, ScopeStack scopes)
+        {
+            ErrorWriter.Move(node.Location);
+            if (node.Token is VariableName name)
+            {
+                if (scopes.TryGetVar(name, out var info))
+                {
+                    ErrorWriter.MoveBack();
+                    return info;
+                }
+                ErrorWriter.MoveBack();
+                return new VarInfo("Unknown identifier");
+            }
+            else if (node.Token is Identifier id)
+            {
+                if (scopes.currFunc.TryGetLocalVar(id.Text, out var info))
+                {
+                    ErrorWriter.MoveBack();
+                    return info;
+                }
+                ErrorWriter.MoveBack();
+                return new VarInfo("Unknown identifier");
+            }
+            else if (node.Token is NumericValue)
+            {
+                ErrorWriter.MoveBack();
+                return new VarInfo("int");
+            }
+            else if (node.Token is StringValue)
+            {
+                ErrorWriter.MoveBack();
+                return new VarInfo("string");
+            }
+            else if (node.Token is BoolLiteral or TrueKeyword or FalseKeyword)
+            {
+                ErrorWriter.MoveBack();
+                return new VarInfo("bool");
+            }
+            
+            ErrorWriter.MoveBack();
+            return new VarInfo("Unknown type");
+        }
 
         private static List<string> GetLabels(ParseNode node, List<string> labels)
         {
@@ -730,7 +787,7 @@ namespace Compiler
             return labels;
         }
 
-        private static List<VarInfo> ConvertParams(FunctionCall call) => call.Parameters.Select(x => new VarInfo(x.TypeExpected)).ToList();
-        private static List<VarInfo> ConvertParams(ClassInstantiation call) => call.Parameters.Select(x => new VarInfo(x.TypeExpected)).ToList();
+        private static List<VarInfo> ConvertParams(FunctionCall call, ScopeStack scopes) => call.Parameters.Select(x => GetTerminalType(x, scopes)).ToList();
+        private static List<VarInfo> ConvertParams(ClassInstantiation call, ScopeStack scopes) => call.Parameters.Select(x => GetTerminalType(x, scopes)).ToList();
     }
 }
