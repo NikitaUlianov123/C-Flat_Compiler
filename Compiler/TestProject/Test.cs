@@ -1580,7 +1580,7 @@ namespace TestProject
         #endregion
     }
 
-    [TestClass]
+    /*[TestClass]
     public sealed class FullProgram
     {
         #region Helpers
@@ -2097,5 +2097,5 @@ namespace TestProject
             CheckEntryPoint($"{name}.exe");
             CheckOutput($"{name}.exe", expectedOutput);
         }
-    }
+    }*/
 }

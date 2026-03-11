@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Coverage settings scoped to Tokenizer tests: only instrument Lexer and Token sources -->
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="Code Coverage">
+        <Configuration>
+          <CodeCoverage>
+            <ModulePaths>
+              <Include>
+                <ModulePath>.*Compiler\.dll$</ModulePath>
+              </Include>
+              <Exclude>
+                <ModulePath>.*TestProject\.dll$</ModulePath>
+              </Exclude>
+            </ModulePaths>
+            <Sources>
+              <Include>
+                <Source>.*\\Lexer\.cs$</Source>
+                <Source>.*\\Token\.cs$</Source>
+              </Include>
+            </Sources>
+          </CodeCoverage>
+          <Format>cobertura</Format>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>

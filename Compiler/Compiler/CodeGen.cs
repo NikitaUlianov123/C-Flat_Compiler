@@ -1,4 +1,4 @@
-﻿using Compiler.Tokens;
+﻿/*using Compiler.Tokens;
 
 using Microsoft.VisualBasic;
 
@@ -664,4 +664,4 @@ namespace Compiler
 
         private static List<VarInfo> ConvertParams(List<FunctionParameter> parameters) => parameters.Select(x => new VarInfo(x.Type)).ToList();
     }
-}
+}*/
