@@ -15,116 +15,769 @@ using System.Text;
 namespace TestProject
 {
     [TestClass]
+    [DoNotParallelize]
     public sealed class Parsing
     {
-        [TestMethod]
-        public void PrintTest()
+        public static void ValidParseTest(string program)
         {
-            bool success = Lexer.Lex("print(\"Hello\");", out var result);
-            Assert.IsTrue(success);
+            List<string> messages;
 
-            var messages = Parser.Parse(result, out var tree);
-            ;
+            Assert.IsTrue(Lexer.Lex(program, out List<IToken> result), "Did not tokenize.");
+
+            messages = Parser.Parse(result, out ParseNode? tree);
+
             Assert.IsTrue(messages.Count == 0, string.Join("\n", messages));
         }
-
-        [TestMethod]
-        public void MathTest()
+        public static void InvalidParseTest(string program)
         {
-            bool success = Lexer.Lex("int a = 3 + 4;\n" +
-                                     "b = 3 + 4 * 5;\n" +
-                                     "int c = (1 + 2) * 3;\n" +
-                                     "int d = 4 * (7 - 2);\n" +
-                                     "int e = 42;\n" +
-                                     "int f = 3 + 2 * (4 - 1) / 5;\n" +
-                                     "int g = 5 - 3 - 2;", out var result);
-            Assert.IsTrue(success);
-
-
-            ParseNode? twee;
-
-            var messages = Parser.Parse(result, out twee);
-            ;
-        }
-
-        [TestMethod]
-        public void IfTest()
-        {
-            bool success = Lexer.Lex("if(a > 3 && !(b || c) || d)\n" +
-                                     "{\n" +
-                                     "int e = 42;\n" +
-                                     "}\n", out var result);
-            Assert.IsTrue(success);
-
-            ParseNode? twee;
-
-            var messages = Parser.Parse(result, out twee);
-            ;
-        }
-
-        [TestMethod]
-        public void ElseTest()
-        {
-            bool success = Lexer.Lex("int a = 200;\n" +
-                                     "if (a <= 37)\n" +
-                                     "{\n" +
-                                     "    print(\"Hi\");\n" +
-                                     "}\n" +
-                                     "else if (a < 42)\n" +
-                                     "{\n" +
-                                     "    print(\"Hey\");\n" +
-                                     "}\n" +
-                                     "else\n" +
-                                     "{\n" +
-                                     "    print(\"Sup\");\n" +
-                                     "}\n" +
-                                     "\n" +
-                                     "ifn't(a <= 22)\n" +
-                                     "{\n" +
-                                     "    print(\"Hello\");\n" +
-                                     "}\n" +
-                                     "else ifn't(a != 2)\n" +
-                                     "{\n" +
-                                     "    print(\"Yay\");\n" +
-                                     "}", out var result);
-            Assert.IsTrue(success);
-
-            ParseNode? twee;
-
-            var messages = Parser.Parse(result, out twee);
-            ;
-        }
-
-        [TestMethod]
-        public void ScopeTest()
-        {
-            bool success;
-            List<IToken> result;
-
-            ParseNode? twee;
-
             List<string> messages;
-            //#############################
 
+            Assert.IsTrue(Lexer.Lex(program, out List<IToken> result), "Did not tokenize.");
 
-            success = Lexer.Lex("int a = 2;\n" +
-                                "if(a > 3 && !(b || c) || !d)\n" +
-                                "{\n" +
-                                "int e = 42;\n" +
-                                "int b;\n" +
-                                "a = 14;\n" +
-                                "}\n" +
-                                "e = 3;", out result);
+            messages = Parser.Parse(result, out ParseNode? tree);
 
-            messages = Parser.Parse(result, out twee);
+            Assert.IsTrue(messages.Count > 0, "Expected parse failure but parsed successfully.");
         }
+
+        #region Print statements
+        [TestMethod, TestCategory("Print")]
+        public void PrintStringLiteral()
+        {
+            string program = "print(\"Hello\");\n";
+            ValidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("Print")]
+        public void PrintVariable()
+        {
+            string program =
+                "int a = 5;\n" +
+                "print(a);\n";
+            ValidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("Print")]
+        public void PrintMissingParenthesis()
+        {
+            string program = "print(\"Hello\";\n";
+            InvalidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("Print")]
+        public void PrintMissingSemicolon()
+        {
+            string program = "print(\"Hello\")\n";
+            InvalidParseTest(program);
+        }
+        #endregion
+
+        #region Variable declarations
+        [TestMethod, TestCategory("Variables")]
+        public void VariableDeclaration()
+        {
+            string program = "int a;\n";
+            ValidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("Variables")]
+        public void VariableDeclarationAndAssignment()
+        {
+            string program = "int a = 5;\n";
+            ValidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("Variables")]
+        public void VariableAssignment()
+        {
+            string program =
+                "int a = 1;\n" +
+                "a = 2;\n";
+            ValidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("Variables")]
+        public void StringVariableDeclaration()
+        {
+            string program = "string b = \"Hello\";\n";
+            ValidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("Variables")]
+        public void BoolVariableDeclaration()
+        {
+            string program = "bool c = true;\n";
+            ValidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("Variables")]
+        public void MultipleDeclarations()
+        {
+            string program =
+                "int a = 2;\n" +
+                "string b = \"Hi\";\n" +
+                "bool c = true;\n";
+            ValidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("Variables")]
+        public void MissingAssignmentOperator()
+        {
+            string program = "int a 5;\n";
+            InvalidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("Variables")]
+        public void MissingSemicolonOnDeclaration()
+        {
+            string program = "int a = 5\n";
+            InvalidParseTest(program);
+        }
+        #endregion
+
+        #region Math expressions
+        [TestMethod, TestCategory("Math")]
+        public void SimpleMathAddition()
+        {
+            string program = "int a = 3 + 4;\n";
+            ValidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("Math")]
+        public void MathWithPrecedence()
+        {
+            string program = "int a = 3 + 4 * 5;\n";
+            ValidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("Math")]
+        public void MathWithParentheses()
+        {
+            string program = "int a = (1 + 2) * 3;\n";
+            ValidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("Math")]
+        public void NestedMathParentheses()
+        {
+            string program = "int a = 3 + 2 * (4 - 1) / 5;\n";
+            ValidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("Math")]
+        public void MathLeftAssociativity()
+        {
+            string program = "int a = 5 - 3 - 2;\n";
+            ValidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("Math")]
+        public void MathMultipleStatements()
+        {
+            string program =
+                "int a = 3 + 4;\n" +
+                "int b = 3 + 4 * 5;\n" +
+                "int c = (1 + 2) * 3;\n" +
+                "int d = 4 * (7 - 2);\n" +
+                "int e = 42;\n";
+            ValidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("Math")]
+        public void MathUnmatchedParenthesis()
+        {
+            string program = "int a = (3 + 4;\n";
+            InvalidParseTest(program);
+        }
+        #endregion
+
+        #region Incrementers
+        [TestMethod, TestCategory("Incrementer")]
+        public void PostfixIncrement()
+        {
+            string program =
+                "int a = 3;\n" +
+                "a++;\n";
+            ValidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("Incrementer")]
+        public void PrefixIncrement()
+        {
+            string program =
+                "int a = 3;\n" +
+                "++a;\n";
+            ValidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("Incrementer")]
+        public void PostfixDecrement()
+        {
+            string program =
+                "int a = 3;\n" +
+                "a--;\n";
+            ValidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("Incrementer")]
+        public void PrefixDecrement()
+        {
+            string program =
+                "int a = 3;\n" +
+                "--a;\n";
+            ValidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("Incrementer")]
+        public void IncrementerInExpression()
+        {
+            string program =
+                "int a = 3;\n" +
+                "int b = a++ + 2;\n";
+            ValidParseTest(program);
+        }
+        #endregion
+
+        #region If statements
+        [TestMethod, TestCategory("If")]
+        public void SimpleIf()
+        {
+            string program =
+                "if(a > 3)\n" +
+                "{\n" +
+                "    int e = 42;\n" +
+                "}\n";
+            ValidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("If")]
+        public void IfElse()
+        {
+            string program =
+                "if(a > 3)\n" +
+                "{\n" +
+                "    print(\"Hi\");\n" +
+                "}\n" +
+                "else\n" +
+                "{\n" +
+                "    print(\"Bye\");\n" +
+                "}\n";
+            ValidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("If")]
+        public void IfElseIfElse()
+        {
+            string program =
+                "int a = 200;\n" +
+                "if(a <= 37)\n" +
+                "{\n" +
+                "    print(\"Hi\");\n" +
+                "}\n" +
+                "else if(a < 42)\n" +
+                "{\n" +
+                "    print(\"Hey\");\n" +
+                "}\n" +
+                "else\n" +
+                "{\n" +
+                "    print(\"Sup\");\n" +
+                "}\n";
+            ValidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("If")]
+        public void IfComplexBoolExpr()
+        {
+            string program =
+                "if(a > 3 && !(b || c) || d)\n" +
+                "{\n" +
+                "    int e = 42;\n" +
+                "}\n";
+            ValidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("If")]
+        public void IfMissingBraces()
+        {
+            string program =
+                "if(a > 3)\n" +
+                "    int e = 42;\n";
+            InvalidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("If")]
+        public void IfMissingCondition()
+        {
+            string program =
+                "if()\n" +
+                "{\n" +
+                "    int e = 42;\n" +
+                "}\n";
+            InvalidParseTest(program);
+        }
+        #endregion
+
+        #region Ifn't statements
+        [TestMethod, TestCategory("Ifn't")]
+        public void SimpleIfnt()
+        {
+            string program =
+                "ifn't(a <= 22)\n" +
+                "{\n" +
+                "    print(\"Hello\");\n" +
+                "}\n";
+            ValidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("Ifn't")]
+        public void IfntElseIfnt()
+        {
+            string program =
+                "ifn't(a <= 22)\n" +
+                "{\n" +
+                "    print(\"Hello\");\n" +
+                "}\n" +
+                "else ifn't(a != 2)\n" +
+                "{\n" +
+                "    print(\"Yay\");\n" +
+                "}\n";
+            ValidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("Ifn't")]
+        public void MixedIfAndIfnt()
+        {
+            string program =
+                "int a = 200;\n" +
+                "if(a <= 37)\n" +
+                "{\n" +
+                "    print(\"Hi\");\n" +
+                "}\n" +
+                "else\n" +
+                "{\n" +
+                "    print(\"Sup\");\n" +
+                "}\n" +
+                "ifn't(a <= 22)\n" +
+                "{\n" +
+                "    print(\"Hello\");\n" +
+                "}\n" +
+                "else ifn't(a != 2)\n" +
+                "{\n" +
+                "    print(\"Yay\");\n" +
+                "}\n";
+            ValidParseTest(program);
+        }
+        #endregion
+
+        #region While loops
+        [TestMethod, TestCategory("While")]
+        public void SimpleWhile()
+        {
+            string program =
+                "while(x < 3)\n" +
+                "{\n" +
+                "    x = x + 1;\n" +
+                "}\n";
+            ValidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("While")]
+        public void WhileElse()
+        {
+            string program =
+                "while(x < 3)\n" +
+                "{\n" +
+                "    x = x + 1;\n" +
+                "}\n" +
+                "else\n" +
+                "{\n" +
+                "    print(\"Done\");\n" +
+                "}\n";
+            ValidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("While")]
+        public void WhileMissingBraces()
+        {
+            string program =
+                "while(x < 3)\n" +
+                "    x = x + 1;\n";
+            InvalidParseTest(program);
+        }
+        #endregion
+
+        #region For loops
+        [TestMethod, TestCategory("For")]
+        public void ForWithDeclaration()
+        {
+            string program =
+                "for(int i = 0; i < 14; i++)\n" +
+                "{\n" +
+                "    print(i);\n" +
+                "}\n";
+            ValidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("For")]
+        public void ForWithAssignment()
+        {
+            string program =
+                "int a = 2;\n" +
+                "for(a = 0; a < 14; a = a + 1)\n" +
+                "{\n" +
+                "    print(a);\n" +
+                "}\n";
+            ValidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("For")]
+        public void ForMissingSemicolonInHeader()
+        {
+            string program =
+                "for(int i = 0 i < 14; i++)\n" +
+                "{\n" +
+                "    print(i);\n" +
+                "}\n";
+            InvalidParseTest(program);
+        }
+        #endregion
+
+        #region Goto and labels
+        [TestMethod, TestCategory("Goto")]
+        public void GotoAndLabel()
+        {
+            string program =
+                "int i = 0;\n" +
+                "LoopLabel:\n" +
+                "print(\"Loopy\");\n" +
+                "if(i > 5)\n" +
+                "{\n" +
+                "    goto EndLoop;\n" +
+                "}\n" +
+                "i = i + 1;\n" +
+                "goto LoopLabel;\n" +
+                "EndLoop:\n" +
+                "print(\"Done\");\n";
+            ValidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("Goto")]
+        public void GotoMissingSemicolon()
+        {
+            string program =
+                "LoopLabel:\n" +
+                "goto LoopLabel\n";
+            InvalidParseTest(program);
+        }
+        #endregion
+
+        #region Functions
+        [TestMethod, TestCategory("Function")]
+        public void FunctionDeclarationNoParams()
+        {
+            string program =
+                "void Foo()\n" +
+                "{\n" +
+                "    print(\"Bar\");\n" +
+                "}\n";
+            ValidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("Function")]
+        public void FunctionDeclarationWithParams()
+        {
+            string program =
+                "void Foo(int a, string b)\n" +
+                "{\n" +
+                "    print(b);\n" +
+                "}\n";
+            ValidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("Function")]
+        public void FunctionCallNoArgs()
+        {
+            string program =
+                "void Foo()\n" +
+                "{\n" +
+                "    print(\"Bar\");\n" +
+                "}\n" +
+                "Foo();\n";
+            ValidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("Function")]
+        public void FunctionCallWithArgs()
+        {
+            string program =
+                "void Foo(int a, string b)\n" +
+                "{\n" +
+                "    print(b);\n" +
+                "}\n" +
+                "Foo(4, \"Hello\");\n";
+            ValidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("Function")]
+        public void FunctionWithReturnValue()
+        {
+            string program =
+                "int Pow(int a, int b)\n" +
+                "{\n" +
+                "    int result = 1;\n" +
+                "    for(int i = 0; i < b; i++)\n" +
+                "    {\n" +
+                "        result = result * a;\n" +
+                "    }\n" +
+                "    return result;\n" +
+                "}\n" +
+                "int a = Pow(2, 3);\n";
+            ValidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("Function")]
+        public void ReturnNoValue()
+        {
+            string program =
+                "void Foo()\n" +
+                "{\n" +
+                "    return;\n" +
+                "}\n";
+            ValidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("Function")]
+        public void FunctionCallMissingCloseParen()
+        {
+            string program =
+                "void Foo()\n" +
+                "{\n" +
+                "    print(\"Bar\");\n" +
+                "}\n" +
+                "Foo(;\n";
+            InvalidParseTest(program);
+        }
+        #endregion
+
+        #region Boolean expressions
+        [TestMethod, TestCategory("Boolean")]
+        public void SimpleComparison()
+        {
+            string program =
+                "if(a > 3)\n" +
+                "{\n" +
+                "    print(\"Yes\");\n" +
+                "}\n";
+            ValidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("Boolean")]
+        public void BoolLiteralCondition()
+        {
+            string program =
+                "if(true)\n" +
+                "{\n" +
+                "    print(\"Yes\");\n" +
+                "}\n";
+            ValidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("Boolean")]
+        public void BoolAndOr()
+        {
+            string program =
+                "if(a > 3 && b < 5 || c > 1)\n" +
+                "{\n" +
+                "    print(\"Yes\");\n" +
+                "}\n";
+            ValidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("Boolean")]
+        public void BoolNot()
+        {
+            string program =
+                "if(!a)\n" +
+                "{\n" +
+                "    print(\"Yes\");\n" +
+                "}\n";
+            ValidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("Boolean")]
+        public void BoolNestedParentheses()
+        {
+            string program =
+                "if(a > 3 && !(b || c) || !d)\n" +
+                "{\n" +
+                "    print(\"Yes\");\n" +
+                "}\n";
+            ValidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("Boolean")]
+        public void AllComparisonOperators()
+        {
+            string program =
+                "if(a < 1) { print(\"a\"); }\n" +
+                "if(a <= 1) { print(\"b\"); }\n" +
+                "if(a > 1) { print(\"c\"); }\n" +
+                "if(a >= 1) { print(\"d\"); }\n" +
+                "if(a =? 1) { print(\"e\"); }\n" +
+                "if(a != 1) { print(\"f\"); }\n";
+            ValidParseTest(program);
+        }
+        #endregion
+
+        #region Classes
+        [TestMethod, TestCategory("Class")]
+        public void ClassDeclaration()
+        {
+            string program =
+                "class Cat\n" +
+                "{\n" +
+                "    string Name;\n" +
+                "    int Age;\n" +
+                "}\n";
+            ValidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("Class")]
+        public void ClassWithMethods()
+        {
+            string program =
+                "class Cat\n" +
+                "{\n" +
+                "    string Name;\n" +
+                "    int Age;\n" +
+                "    void SetName(string name)\n" +
+                "    {\n" +
+                "        Name = name;\n" +
+                "    }\n" +
+                "    int SetAge(int age)\n" +
+                "    {\n" +
+                "        Age = age;\n" +
+                "        return age;\n" +
+                "    }\n" +
+                "}\n";
+            ValidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("Class")]
+        public void ClassInstantiation()
+        {
+            string program =
+                "class Cat\n" +
+                "{\n" +
+                "    string Name;\n" +
+                "}\n" +
+                "Cat bob = new Cat();\n";
+            ValidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("Class")]
+        public void ClassConstructorWithParams()
+        {
+            string program =
+                "class Cat\n" +
+                "{\n" +
+                "    string Name;\n" +
+                "    int Age;\n" +
+                "    Cat(string name, int age)\n" +
+                "    {\n" +
+                "        Name = name;\n" +
+                "        Age = age;\n" +
+                "    }\n" +
+                "}\n" +
+                "Cat bob = new Cat(\"Bob\", 2);\n";
+            ValidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("Class")]
+        public void ClassFieldAccess()
+        {
+            string program =
+                "class Cat\n" +
+                "{\n" +
+                "    string Name;\n" +
+                "}\n" +
+                "Cat bob = new Cat();\n" +
+                "bob.Name = \"Bob\";\n" +
+                "print(bob.Name);\n";
+            ValidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("Class")]
+        public void ClassMethodCall()
+        {
+            string program =
+                "class Cat\n" +
+                "{\n" +
+                "    string Name;\n" +
+                "    void SetName(string name)\n" +
+                "    {\n" +
+                "        Name = name;\n" +
+                "    }\n" +
+                "}\n" +
+                "Cat bob = new Cat();\n" +
+                "bob.SetName(\"Bob\");\n";
+            ValidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("Class")]
+        public void ClassMissingClosingBrace()
+        {
+            string program =
+                "class Cat\n" +
+                "{\n" +
+                "    string Name;\n";
+            InvalidParseTest(program);
+        }
+        #endregion
+
+        #region Scope and combined
+        [TestMethod, TestCategory("Scope")]
+        public void NestedScopes()
+        {
+            string program =
+                "int a = 2;\n" +
+                "if(a > 3 && !(b || c) || !d)\n" +
+                "{\n" +
+                "    int e = 42;\n" +
+                "    int b;\n" +
+                "    a = 14;\n" +
+                "}\n" +
+                "e = 3;\n";
+            ValidParseTest(program);
+        }
+
+        [TestMethod, TestCategory("Scope")]
+        public void MultipleStatementTypes()
+        {
+            string program =
+                "int x = 5;\n" +
+                "print(\"Start\");\n" +
+                "if(x > 3)\n" +
+                "{\n" +
+                "    print(\"Big\");\n" +
+                "}\n" +
+                "for(int i = 0; i < x; i++)\n" +
+                "{\n" +
+                "    print(i);\n" +
+                "}\n" +
+                "while(x > 0)\n" +
+                "{\n" +
+                "    x = x - 1;\n" +
+                "}\n";
+            ValidParseTest(program);
+        }
+        #endregion
     }
 
     [TestClass]
     [DoNotParallelize]
     public sealed class Semantic
     {
-        public static void ValidTypeTest(string program)
+        public static void ValidSemanticsTest(string program)
         {
             List<string> messages;
 
@@ -138,7 +791,7 @@ namespace TestProject
 
             if (messages.Count > 0) throw new Exception("Did not pass analysis.");
         }
-        public static void TypeMismatchTest(string program)
+        public static void InvalidSemanticsTest(string program)
         {
             List<string> messages;
 
@@ -169,7 +822,7 @@ namespace TestProject
                 "print(a);\n" +
                 "print(b);\n" +
                 "print(c);\n";
-            ValidTypeTest(program);
+            ValidSemanticsTest(program);
         }
         [TestMethod, TestCategory("Successful type check")]
         public void FunctionParamTypeTest()
@@ -183,7 +836,7 @@ namespace TestProject
                         "\t\tprint(b);\r\n" +
                     "\t}\r\n" +
                 "}\r\n";
-            ValidTypeTest(program);
+            ValidSemanticsTest(program);
         }
         [TestMethod, TestCategory("Successful type check")]
         public void FunctionReturnTypeTest()
@@ -201,7 +854,7 @@ namespace TestProject
                     "\treturn result;\r\n" +
                 "}\r\n" +
                 "\r\n";
-            ValidTypeTest(program);
+            ValidSemanticsTest(program);
         }
 
         [TestMethod, TestCategory("Successful type check"), TestCategory("Classes")]
@@ -228,7 +881,7 @@ namespace TestProject
                 "        return age;\r\n" +
                 "    }\r\n" +
                 "}";
-            TypeMismatchTest(program);
+            InvalidSemanticsTest(program);
         }
         #endregion
 
@@ -268,13 +921,13 @@ namespace TestProject
         public void InitIntWithBool()
         {
             string program = "int a = true;\n";
-            TypeMismatchTest(program);
+            InvalidSemanticsTest(program);
         }
         [TestMethod, TestCategory("Standard type mismatch")]
         public void InitIntWithString()
         {
             string program = "int a = \"Hi\";\n";
-            TypeMismatchTest(program);
+            InvalidSemanticsTest(program);
         }
         [TestMethod, TestCategory("Standard type mismatch")]
         public void SetIntToString()
@@ -282,7 +935,7 @@ namespace TestProject
             string program =
                 "int a = 2;\n" +
                 "a = \"Bye\";\n";
-            TypeMismatchTest(program);
+            InvalidSemanticsTest(program);
         }
         [TestMethod, TestCategory("Standard type mismatch")]
         public void SetIntToBool()
@@ -290,7 +943,7 @@ namespace TestProject
             string program =
                 "int a = 2;\n" +
                 "a = false;\n";
-            TypeMismatchTest(program);
+            InvalidSemanticsTest(program);
         }
         [TestMethod, TestCategory("Standard type mismatch")]
         public void SetIntToStringVar()
@@ -299,7 +952,7 @@ namespace TestProject
                 "int a = 2;\n" +
                 "string b = \"Hi\";\n" +
                 "a = b;\n";
-            TypeMismatchTest(program);
+            InvalidSemanticsTest(program);
         }
         [TestMethod, TestCategory("Standard type mismatch")]
         public void SetIntToBoolVar()
@@ -308,19 +961,19 @@ namespace TestProject
                 "int a = 2;\n" +
                 "bool c = true;\n" +
                 "a = c;\n";
-            TypeMismatchTest(program);
+            InvalidSemanticsTest(program);
         }
         [TestMethod, TestCategory("Standard type mismatch")]
         public void InitStringWithInt()
         {
             string program = "string b = 3;\n";
-            TypeMismatchTest(program);
+            InvalidSemanticsTest(program);
         }
         [TestMethod, TestCategory("Standard type mismatch")]
         public void InitStringWithBool()
         {
             string program = "string b = true;\n";
-            TypeMismatchTest(program);
+            InvalidSemanticsTest(program);
         }
         [TestMethod, TestCategory("Standard type mismatch")]
         public void SetStringToInt()
@@ -328,7 +981,7 @@ namespace TestProject
             string program =
                 "string b = \"Hi\";\n" +
                 "b = 2;\n";
-            TypeMismatchTest(program);
+            InvalidSemanticsTest(program);
         }
         [TestMethod, TestCategory("Standard type mismatch")]
         public void SetStringToBool()
@@ -336,7 +989,7 @@ namespace TestProject
             string program =
                 "string b = \"Hi\";\n" +
                 "b = false;\n";
-            TypeMismatchTest(program);
+            InvalidSemanticsTest(program);
         }
         [TestMethod, TestCategory("Standard type mismatch")]
         public void SetStringToIntVar()
@@ -345,7 +998,7 @@ namespace TestProject
                 "int a = 2;\n" +
                 "string b = \"Hi\";\n" +
                 "b = a;\n";
-            TypeMismatchTest(program);
+            InvalidSemanticsTest(program);
         }
         [TestMethod, TestCategory("Standard type mismatch")]
         public void SetStringToBoolVar()
@@ -354,19 +1007,19 @@ namespace TestProject
                 "string b = \"Hi\";\n" +
                 "bool c = true;\n" +
                 "b = c;\n";
-            TypeMismatchTest(program);
+            InvalidSemanticsTest(program);
         }
         [TestMethod, TestCategory("Standard type mismatch")]
         public void InitBoolWithInt()
         {
             string program = "bool c = 3;\n";
-            TypeMismatchTest(program);
+            InvalidSemanticsTest(program);
         }
         [TestMethod, TestCategory("Standard type mismatch")]
         public void InitBoolWithString()
         {
             string program = "bool c = \"Hi\";\n";
-            TypeMismatchTest(program);
+            InvalidSemanticsTest(program);
         }
         [TestMethod, TestCategory("Standard type mismatch")]
         public void SetBoolToInt()
@@ -374,7 +1027,7 @@ namespace TestProject
             string program =
                 "bool c = true;\n" +
                 "c = 2;\n";
-            TypeMismatchTest(program);
+            InvalidSemanticsTest(program);
 
         }
         [TestMethod, TestCategory("Standard type mismatch")]
@@ -383,7 +1036,7 @@ namespace TestProject
             string program =
                 "bool c = true;\n" +
                 "c = \"Hi\";\n";
-            TypeMismatchTest(program);
+            InvalidSemanticsTest(program);
 
         }
         [TestMethod, TestCategory("Standard type mismatch")]
@@ -393,7 +1046,7 @@ namespace TestProject
                 "int a = 2;\n" +
                 "bool c = true;\n" +
                 "c = a;\n";
-            TypeMismatchTest(program);
+            InvalidSemanticsTest(program);
         }
         [TestMethod, TestCategory("Standard type mismatch")]
         public void SetBoolToStringVar()
@@ -402,7 +1055,7 @@ namespace TestProject
                 "string b = \"Hi\";\n" +
                 "bool c = true;\n" +
                 "c = b;\n";
-            TypeMismatchTest(program);
+            InvalidSemanticsTest(program);
         }
         #endregion
 
@@ -419,7 +1072,7 @@ namespace TestProject
                         "\t\tprint(b);\r\n" +
                     "\t}\r\n" +
                 "}\r\n";
-            TypeMismatchTest(program);
+            InvalidSemanticsTest(program);
         }
         [TestMethod, TestCategory("Function type mismatch")]
         public void FunctionReturnTypeMismatchTest()
@@ -437,7 +1090,7 @@ namespace TestProject
                     "\treturn result;\r\n" +
                 "}\r\n" +
                 "\r\n";
-            TypeMismatchTest(program);
+            InvalidSemanticsTest(program);
         }
 
         [TestMethod, TestCategory("Function type mismatch"), TestCategory("Classes")]
@@ -463,7 +1116,24 @@ namespace TestProject
                 "        return age;\r\n" +
                 "    }\r\n" +
                 "}";
-            TypeMismatchTest(program);
+            InvalidSemanticsTest(program);
+        }
+        #endregion
+
+        #region Scope checking
+        [TestMethod, TestCategory("Scope checking")]
+        public void ScopeTestTest()
+        {
+            string program =
+                "int a = 2;\n" +
+                "if(a > 3)\n" +
+                "{\n" +
+                "   int e = 42;\n" +
+                "   int b;\n" +
+                "   a = 14;\n" +
+                "}\n" +
+                "e = 3;";
+            InvalidSemanticsTest(program);
         }
         #endregion
     }

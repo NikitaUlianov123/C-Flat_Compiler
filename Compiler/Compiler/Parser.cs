@@ -217,7 +217,7 @@ namespace Compiler
                         {
                             if (typeof(IToken).IsAssignableFrom(production[i]))//child is IToken(terminal)
                             {
-                                if (tempList[0].GetType() == production[i])//and the next token is what we want
+                                if (tempList.Count > 0 && tempList[0].GetType() == production[i])//and the next token is what we want
                                 {
                                     result.Children.Add(tempList[0]);
                                     tempList.RemoveAt(0);
@@ -1057,6 +1057,21 @@ namespace Compiler
     {
         public override ParseNode Hoist()
         {
+            //base.Hoist(), but I don't want to call the FunctionDeclaration hoist
+            for (int i = 0; i < Children.Count; i++)
+            {
+                if (Children[i] is ParseNode child)
+                {
+                    var newChild = child.Hoist();
+                    if (newChild is null)
+                    {
+                        Children.RemoveAt(i--);
+                        continue;
+                    }
+                    Children[i] = newChild;
+                }
+            }
+
             Location = ((Children[0] as IToken)!.Row, (Children[0] as IToken)!.Column);
 
             ReturnType = (Children[0] as IToken)!.Text;
