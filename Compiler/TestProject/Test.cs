@@ -1663,7 +1663,7 @@ namespace TestProject
 
             if (messages.Count > 0) throw new Exception("Did not pass analysis.");
 
-            //CodeGen.GenerateCode(twee!, scopes, assemblyName);
+            CodeGen.GenerateCode(twee!, scopes, assemblyName);
         }
         #endregion
 

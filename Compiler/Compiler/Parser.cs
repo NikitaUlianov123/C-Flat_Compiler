@@ -894,6 +894,8 @@ namespace Compiler
         public string Owner { get; private set; } = "";
         public List<ASTNode> Parameters { get; private set; } = [];
 
+        public Function? Target = null;
+
         public override ParseNode Hoist()
         {
             base.Hoist();

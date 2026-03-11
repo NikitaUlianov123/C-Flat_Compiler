@@ -203,7 +203,7 @@ namespace Compiler
                 Constructors.Add(func);
             }
         }
-        public void CheckMethodCall(string name, List<VarInfo> parameters)
+        public Function? CheckMethodCall(string name, List<VarInfo> parameters)
         {
             Function? method = Methods.Find(x => x.Name == name && x.Parameters.SequenceEqual(parameters));
             if (method is null)
@@ -221,6 +221,7 @@ namespace Compiler
                 }
                 ErrorWriter.Add(sb.ToString());
             }
+            return method;
         }
         public void CheckConstructorCall(List<VarInfo> parameters)
         {
@@ -271,7 +272,7 @@ namespace Compiler
     }
     public class ScopeStack
     {
-        private Dictionary<string, ClassInfo> classes = [];
+        public Dictionary<string, ClassInfo> classes { get; } = [];
 
         public ClassInfo currClass { get; private set; }
         public Function currFunc { get; private set; }
@@ -312,13 +313,13 @@ namespace Compiler
             currFunc = currClass.Constructors.Find(x => x.Parameters.SequenceEqual(parameters))!;
         }
 
-        public void CheckMethodCall(string name, List<VarInfo> parameters, ClassInfo? Class = null)
+        public void CheckMethodCall(FunctionCall call, ClassInfo? Class = null)
         {
             if (Class is null)
             {
                 Class = currClass;
             }
-            Class.CheckMethodCall(name, parameters);
+            call.Target = Class!.CheckMethodCall(call.Name, SemanticAnalyzer.ConvertParams(call, this));
         }
         public void CheckFieldAccess(string name, ClassInfo? Class = null)
         {
@@ -421,6 +422,7 @@ namespace Compiler
                     ErrorWriter.Move(funcy.Location);
 
                     scopes.currClass.AddMethod(funcy.Name, funcy.Parameters.Select(x => (x.Name, new VarInfo(x.Type))).ToList(), funcy.ReturnType);
+                    scopes.currClass.Methods[^1].Labels = GetLabels(funcy, []);
 
                     ErrorWriter.MoveBack();
                 }
@@ -465,7 +467,7 @@ namespace Compiler
                     CheckFunctionBody((child as ParseNode)!);
                 }
             }
-            if (node is ConstructorDeclaration constr)
+            else if (node is ConstructorDeclaration constr)
             {
                 scopes.ChangeMethod(constr.Parameters.Select(x => new VarInfo(x.Type)).ToList());
                 foreach (var child in constr.Children)
@@ -492,10 +494,6 @@ namespace Compiler
             else //we're in main
             {
                 CheckFunctionBody(node);
-                //foreach (var child in node.Children)
-                //{
-                //    CheckFunctions((child as ParseNode)!, scopes);
-                //}
             }
 
             ErrorWriter.MoveBack();
@@ -505,7 +503,7 @@ namespace Compiler
                 ErrorWriter.Move(curr.Location);
                 if (curr is FunctionCall call)
                 {
-                    scopes.CheckMethodCall(call.Name, ConvertParams(call, scopes));
+                    scopes.CheckMethodCall(call);
                 }
                 else if (curr is VariableDeclaration decl)
                 {
@@ -787,7 +785,7 @@ namespace Compiler
             return labels;
         }
 
-        private static List<VarInfo> ConvertParams(FunctionCall call, ScopeStack scopes) => call.Parameters.Select(x => GetTerminalType(x, scopes)).ToList();
+        public static List<VarInfo> ConvertParams(FunctionCall call, ScopeStack scopes) => call.Parameters.Select(x => GetTerminalType(x, scopes)).ToList();
         private static List<VarInfo> ConvertParams(ClassInstantiation call, ScopeStack scopes) => call.Parameters.Select(x => GetTerminalType(x, scopes)).ToList();
     }
 }
