@@ -16,6 +16,448 @@ namespace TestProject
 {
     [TestClass]
     [DoNotParallelize]
+    public sealed class Tokenizer
+    {
+        public static void ValidLexTest(string program, params Type[] expectedTokenTypes)
+        {
+            Assert.IsTrue(Lexer.Lex(program, out List<IToken> result), "Lexer reported failure.");
+
+            var nonWhitespace = result.Where(t => t is not WhiteSpace and not Comment).ToList();
+
+            Assert.AreEqual(expectedTokenTypes.Length, nonWhitespace.Count,
+                $"Expected {expectedTokenTypes.Length} tokens but got {nonWhitespace.Count}:\n" +
+                string.Join(", ", nonWhitespace.Select(t => t.GetType().Name)));
+
+            for (int i = 0; i < expectedTokenTypes.Length; i++)
+            {
+                Assert.IsInstanceOfType(nonWhitespace[i], expectedTokenTypes[i],
+                    $"Token {i}: expected {expectedTokenTypes[i].Name} but got {nonWhitespace[i].GetType().Name} (\"{nonWhitespace[i].Text}\")");
+            }
+        }
+        public static void InvalidLexTest(string program)
+        {
+            bool success = Lexer.Lex(program, out List<IToken> result);
+
+            Assert.IsFalse(success, "Expected lex failure but lexed successfully.");
+            Assert.IsTrue(result.Any(t => t is Error), "Expected an Error token.");
+        }
+
+        #region Keywords
+        [TestMethod, TestCategory("Keyword")]
+        public void PrintKeyword()
+        {
+            ValidLexTest("print", typeof(PrintKeyword));
+        }
+
+        [TestMethod, TestCategory("Keyword")]
+        public void IfKeyword()
+        {
+            ValidLexTest("if", typeof(IfKeyword));
+        }
+
+        [TestMethod, TestCategory("Keyword")]
+        public void IfntKeyword()
+        {
+            ValidLexTest("ifn't", typeof(IfntKeyword));
+        }
+
+        [TestMethod, TestCategory("Keyword")]
+        public void ElseKeyword()
+        {
+            ValidLexTest("else", typeof(ElseKeyword));
+        }
+
+        [TestMethod, TestCategory("Keyword")]
+        public void WhileKeyword()
+        {
+            ValidLexTest("while", typeof(WhileKeyword));
+        }
+
+        [TestMethod, TestCategory("Keyword")]
+        public void ForKeyword()
+        {
+            ValidLexTest("for", typeof(ForKeyword));
+        }
+
+        [TestMethod, TestCategory("Keyword")]
+        public void TrueKeyword()
+        {
+            ValidLexTest("true", typeof(TrueKeyword));
+        }
+
+        [TestMethod, TestCategory("Keyword")]
+        public void FalseKeyword()
+        {
+            ValidLexTest("false", typeof(FalseKeyword));
+        }
+
+        [TestMethod, TestCategory("Keyword")]
+        public void GotoKeyword()
+        {
+            ValidLexTest("goto", typeof(GotoKeyword));
+        }
+
+        [TestMethod, TestCategory("Keyword")]
+        public void ReturnKeyword()
+        {
+            ValidLexTest("return", typeof(ReturnKeyword));
+        }
+
+        [TestMethod, TestCategory("Keyword")]
+        public void ClassKeyword()
+        {
+            ValidLexTest("class", typeof(ClassKeyword));
+        }
+
+        [TestMethod, TestCategory("Keyword")]
+        public void NewKeyword()
+        {
+            ValidLexTest("new", typeof(NewKeyword));
+        }
+
+        [TestMethod, TestCategory("Keyword")]
+        public void KeywordAsIdentifierPrefix()
+        {
+            // "format" starts with "for" but should be an Identifier, not ForKeyword
+            ValidLexTest("format", typeof(Identifier));
+        }
+        #endregion
+
+        #region Punctuation
+        [TestMethod, TestCategory("Punctuation")]
+        public void OpenParenthesis()
+        {
+            ValidLexTest("(", typeof(OpenParenthesis));
+        }
+
+        [TestMethod, TestCategory("Punctuation")]
+        public void CloseParenthesis()
+        {
+            ValidLexTest(")", typeof(CloseParenthesis));
+        }
+
+        [TestMethod, TestCategory("Punctuation")]
+        public void SemicolonToken()
+        {
+            ValidLexTest(";", typeof(Semicolon));
+        }
+
+        [TestMethod, TestCategory("Punctuation")]
+        public void CommaToken()
+        {
+            ValidLexTest(",", typeof(Comma));
+        }
+
+        [TestMethod, TestCategory("Punctuation")]
+        public void DotToken()
+        {
+            ValidLexTest(".", typeof(Dot));
+        }
+
+        [TestMethod, TestCategory("Punctuation")]
+        public void OpenCurlyBracket()
+        {
+            ValidLexTest("{", typeof(OpenCurlyBracket));
+        }
+
+        [TestMethod, TestCategory("Punctuation")]
+        public void CloseCurlyBracket()
+        {
+            ValidLexTest("}", typeof(CloseCurlyBracket));
+        }
+        #endregion
+
+        #region Operators
+        [TestMethod, TestCategory("Operator")]
+        public void AssignmentOperator()
+        {
+            ValidLexTest("=", typeof(AssignmentOperator));
+        }
+
+        [TestMethod, TestCategory("Operator")]
+        public void EqualityOperator()
+        {
+            ValidLexTest("=?", typeof(EqualityOperator));
+        }
+
+        [TestMethod, TestCategory("Operator")]
+        public void NotEqualityOperator()
+        {
+            ValidLexTest("!=", typeof(NotEqualityOperator));
+        }
+
+        [TestMethod, TestCategory("Operator")]
+        public void PlusOperator()
+        {
+            ValidLexTest("+", typeof(PlusOperator));
+        }
+
+        [TestMethod, TestCategory("Operator")]
+        public void MinusOperator()
+        {
+            ValidLexTest("-", typeof(MinusOperator));
+        }
+
+        [TestMethod, TestCategory("Operator")]
+        public void TimesOperator()
+        {
+            ValidLexTest("*", typeof(TimesOperator));
+        }
+
+        [TestMethod, TestCategory("Operator")]
+        public void DivideOperator()
+        {
+            ValidLexTest("/", typeof(DivideOperator));
+        }
+
+        [TestMethod, TestCategory("Operator")]
+        public void IncrementOperator()
+        {
+            ValidLexTest("++", typeof(IncrementOperator));
+        }
+
+        [TestMethod, TestCategory("Operator")]
+        public void DecrementOperator()
+        {
+            ValidLexTest("--", typeof(DecrementOperator));
+        }
+
+        [TestMethod, TestCategory("Operator")]
+        public void AndOperator()
+        {
+            ValidLexTest("&&", typeof(AndOperator));
+        }
+
+        [TestMethod, TestCategory("Operator")]
+        public void OrOperator()
+        {
+            ValidLexTest("||", typeof(OrOperator));
+        }
+
+        [TestMethod, TestCategory("Operator")]
+        public void NotOperator()
+        {
+            ValidLexTest("!", typeof(NotOperator));
+        }
+
+        [TestMethod, TestCategory("Operator")]
+        public void GreaterThanOperator()
+        {
+            ValidLexTest(">", typeof(GreaterThanOperator));
+        }
+
+        [TestMethod, TestCategory("Operator")]
+        public void LessThanOperator()
+        {
+            ValidLexTest("<", typeof(LessThanOperator));
+        }
+
+        [TestMethod, TestCategory("Operator")]
+        public void GreaterThanOrEqualOperator()
+        {
+            ValidLexTest(">=", typeof(GreaterThanOrEqualOperator));
+        }
+
+        [TestMethod, TestCategory("Operator")]
+        public void LessThanOrEqualOperator()
+        {
+            ValidLexTest("<=", typeof(LessThanOrEqualOperator));
+        }
+        #endregion
+
+        #region Values
+        [TestMethod, TestCategory("Value")]
+        public void StringLiteral()
+        {
+            ValidLexTest("\"Hello\"", typeof(StringValue));
+        }
+
+        [TestMethod, TestCategory("Value")]
+        public void StringWithEscapedQuote()
+        {
+            ValidLexTest("\"He said \\\"hi\\\"\"", typeof(StringValue));
+        }
+
+        [TestMethod, TestCategory("Value")]
+        public void IntegerLiteral()
+        {
+            ValidLexTest("42", typeof(NumericValue));
+        }
+
+        [TestMethod, TestCategory("Value")]
+        public void DecimalLiteral()
+        {
+            ValidLexTest("3.14", typeof(NumericValue));
+        }
+
+        [TestMethod, TestCategory("Value")]
+        public void ScientificNotation()
+        {
+            ValidLexTest("1e10", typeof(NumericValue));
+        }
+        #endregion
+
+        #region Identifiers and labels
+        [TestMethod, TestCategory("Identifier")]
+        public void SimpleIdentifier()
+        {
+            ValidLexTest("myVar", typeof(Identifier));
+        }
+
+        [TestMethod, TestCategory("Identifier")]
+        public void IdentifierWithUnderscore()
+        {
+            ValidLexTest("_count", typeof(Identifier));
+        }
+
+        [TestMethod, TestCategory("Identifier")]
+        public void IdentifierWithDigits()
+        {
+            ValidLexTest("x2", typeof(Identifier));
+        }
+
+        [TestMethod, TestCategory("Label")]
+        public void LabelToken()
+        {
+            ValidLexTest("LoopStart:", typeof(Label));
+        }
+        #endregion
+
+        #region Whitespace and comments
+        [TestMethod, TestCategory("Whitespace")]
+        public void WhitespaceIsSkipped()
+        {
+            ValidLexTest("   int   a   ", typeof(Identifier), typeof(Identifier));
+        }
+
+        [TestMethod, TestCategory("Comment")]
+        public void SingleLineComment()
+        {
+            ValidLexTest("int a // this is a comment", typeof(Identifier), typeof(Identifier));
+        }
+        #endregion
+
+        #region Composite statements
+        [TestMethod, TestCategory("Composite")]
+        public void PrintStatement()
+        {
+            ValidLexTest("print(\"Hello\");",
+                typeof(PrintKeyword), typeof(OpenParenthesis), typeof(StringValue), typeof(CloseParenthesis), typeof(Semicolon));
+        }
+
+        [TestMethod, TestCategory("Composite")]
+        public void VariableDeclarationAndAssignment()
+        {
+            ValidLexTest("int a = 5;",
+                typeof(Identifier), typeof(Identifier), typeof(AssignmentOperator), typeof(NumericValue), typeof(Semicolon));
+        }
+
+        [TestMethod, TestCategory("Composite")]
+        public void MathExpression()
+        {
+            ValidLexTest("3 + 4 * 5",
+                typeof(NumericValue), typeof(PlusOperator), typeof(NumericValue), typeof(TimesOperator), typeof(NumericValue));
+        }
+
+        [TestMethod, TestCategory("Composite")]
+        public void BoolExpression()
+        {
+            ValidLexTest("a > 3 && b <= 5 || !c",
+                typeof(Identifier), typeof(GreaterThanOperator), typeof(NumericValue),
+                typeof(AndOperator),
+                typeof(Identifier), typeof(LessThanOrEqualOperator), typeof(NumericValue),
+                typeof(OrOperator),
+                typeof(NotOperator), typeof(Identifier));
+        }
+
+        [TestMethod, TestCategory("Composite")]
+        public void ForLoopHeader()
+        {
+            ValidLexTest("for(int i = 0; i < 14; i++)",
+                typeof(ForKeyword), typeof(OpenParenthesis),
+                typeof(Identifier), typeof(Identifier), typeof(AssignmentOperator), typeof(NumericValue), typeof(Semicolon),
+                typeof(Identifier), typeof(LessThanOperator), typeof(NumericValue), typeof(Semicolon),
+                typeof(Identifier), typeof(IncrementOperator),
+                typeof(CloseParenthesis));
+        }
+
+        [TestMethod, TestCategory("Composite")]
+        public void ClassInstantiation()
+        {
+            ValidLexTest("Cat bob = new Cat();",
+                typeof(Identifier), typeof(Identifier), typeof(AssignmentOperator),
+                typeof(NewKeyword), typeof(Identifier), typeof(OpenParenthesis), typeof(CloseParenthesis), typeof(Semicolon));
+        }
+
+        [TestMethod, TestCategory("Composite")]
+        public void DotAccess()
+        {
+            ValidLexTest("bob.Name",
+                typeof(Identifier), typeof(Dot), typeof(Identifier));
+        }
+
+        [TestMethod, TestCategory("Composite")]
+        public void GotoStatement()
+        {
+            ValidLexTest("goto EndLoop;",
+                typeof(GotoKeyword), typeof(Identifier), typeof(Semicolon));
+        }
+
+        [TestMethod, TestCategory("Composite")]
+        public void IfntStatement()
+        {
+            ValidLexTest("ifn't(a <= 22)",
+                typeof(IfntKeyword), typeof(OpenParenthesis),
+                typeof(Identifier), typeof(LessThanOrEqualOperator), typeof(NumericValue),
+                typeof(CloseParenthesis));
+        }
+
+        [TestMethod, TestCategory("Composite")]
+        public void EqualityCheck()
+        {
+            ValidLexTest("a =? b",
+                typeof(Identifier), typeof(EqualityOperator), typeof(Identifier));
+        }
+        #endregion
+
+        #region Error tokens
+        [TestMethod, TestCategory("Error")]
+        public void UnrecognizedCharacter()
+        {
+            InvalidLexTest("@");
+        }
+
+        [TestMethod, TestCategory("Error")]
+        public void UnrecognizedInMiddle()
+        {
+            InvalidLexTest("int a = 5 @ 3;");
+        }
+        #endregion
+
+        #region Row and column tracking
+        [TestMethod, TestCategory("Position")]
+        public void RowTracking()
+        {
+            Lexer.Lex("int a\nint b", out var result);
+            var identifiers = result.Where(t => t is Identifier).ToList();
+            Assert.AreEqual(0, identifiers[0].Row);
+            Assert.AreEqual(1, identifiers[2].Row);
+        }
+
+        [TestMethod, TestCategory("Position")]
+        public void ColumnTracking()
+        {
+            Lexer.Lex("int a = 5;", out var result);
+            var nonWs = result.Where(t => t is not WhiteSpace).ToList();
+            // "int" at column 0, "a" at column 4, "=" at column 6, "5" at column 8, ";" at column 9
+            Assert.AreEqual(0, nonWs[0].Column);
+            Assert.AreEqual(4, nonWs[1].Column);
+        }
+        #endregion
+    }
+
+    [TestClass]
+    [DoNotParallelize]
     public sealed class Parsing
     {
         public static void ValidParseTest(string program)
