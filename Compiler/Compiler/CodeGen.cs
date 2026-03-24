@@ -1,4 +1,4 @@
-﻿/*using Compiler.Tokens;
+﻿using Compiler.Tokens;
 
 using Microsoft.VisualBasic;
 
@@ -86,6 +86,12 @@ namespace Compiler
                                           ScopeStack scopes,
                                           string assemblyName = "EmittedProgram")
         {
+            classBuilders = [];
+            MainLabels = [];
+            MainLocals = [];
+            MainSymbols = [];
+
+
             string fileName = assemblyName + ".exe";
 
             // Define the assembly and module
@@ -106,6 +112,9 @@ namespace Compiler
             MainLabels = MapLabels(il, main.Key.Labels);
 
             EmitEverything(tree, scopes);
+
+            il.Emit(OpCodes.Ret);
+
 
             // Complete the types
             foreach (var classy in classBuilders)
@@ -187,7 +196,7 @@ namespace Compiler
                     }
                 }
             }
-            else if (tree is Program)
+            else if (tree is Program)//this should only be top level code
             {
                 foreach (var child in tree.Children)
                 {
@@ -198,7 +207,6 @@ namespace Compiler
             {
                 var main = classBuilders["Program"].Methods.First(x => x.Key.Name == "Main");
                 var il = main.Value.GetILGenerator();
-
 
                 EmitMethodBody(il, tree, MainLocals, [], MainSymbols, MainLabels, classBuilders["Program"].Methods);
             }
@@ -264,21 +272,6 @@ namespace Compiler
                     {
                         il.Emit(OpCodes.Ldarg, args[id.Text]);
                     }
-                }
-                else if (ast.Token is PrintKeyword)
-                {
-                    var body = (ast.Children[0] as ASTNode)!;
-                    EmitMethodBody(il, body, locals, args, symbols, labels, localMethods);
-                    if (body.Token is StringValue)
-                    {
-                        il.Emit(OpCodes.Call, typeof(Console).GetMethod("WriteLine", [typeof(string)])!);
-                    }
-                    else if (body.Token is Identifier)
-                    {
-                        string variableName = body.Token.Text;
-                        il.Emit(OpCodes.Call, typeof(Console).GetMethod("WriteLine", [symbols[variableName]])!);
-                    }
-                    return;
                 }
                 else if (MathOperators.TryGetValue(ast.Token.GetType(), out var MathOp))
                 {
@@ -370,7 +363,7 @@ namespace Compiler
                 {
                     if (incrementer.IsPre)
                     {
-                        il.Emit(OpCodes.Ldloc, incrementer.Name.Name);//load current value
+                        il.Emit(OpCodes.Ldloc, locals[incrementer.Name.Name]);//load current value
                         il.Emit(OpCodes.Ldc_I4_1);//load 1
                         if (incrementer.IsIncrement)
                         {
@@ -385,11 +378,11 @@ namespace Compiler
                         {
                             il.Emit(OpCodes.Dup);
                         }
-                        il.Emit(OpCodes.Stloc, incrementer.Name.Name);//store incremented value
+                        il.Emit(OpCodes.Stloc, locals[incrementer.Name.Name]);//store incremented value
                     }
                     else
                     {
-                        il.Emit(OpCodes.Ldloc, incrementer.Name.Name);//load current value
+                        il.Emit(OpCodes.Ldloc, locals[incrementer.Name.Name]);//load current value
 
                         if (node is ExpressionIncrementer)//to leave the value on the stack
                         {
@@ -404,77 +397,55 @@ namespace Compiler
                         {
                             il.Emit(OpCodes.Sub);
                         }
-                        il.Emit(OpCodes.Stloc, incrementer.Name.Name);//store incremented value
+                        il.Emit(OpCodes.Stloc, locals[incrementer.Name.Name]);//store incremented value
                     }
                 }
                 else
                 {
+                    var field = classBuilders[incrementer.Name.Owner].TypeBuilder.GetField(incrementer.Name.Name)!;
+
+                    // Two refs: one consumed by ldfld, one stays for stfld
+                    il.Emit(OpCodes.Ldloc, locals[incrementer.Name.Owner]);
+                    il.Emit(OpCodes.Dup);
+                    il.Emit(OpCodes.Ldfld, field); // stack: [obj, oldValue]
+
                     if (incrementer.IsPre)
                     {
-                        il.Emit(OpCodes.Ldloc, incrementer.Name.Name);//load current value
-                        il.Emit(OpCodes.Ldc_I4_1);//load 1
-                        if (incrementer.IsIncrement)
+                        il.Emit(OpCodes.Ldc_I4_1);
+                        il.Emit(incrementer.IsIncrement ? OpCodes.Add : OpCodes.Sub);
+                        // stack: [obj, newValue]
+
+                        if (node is ExpressionIncrementer)
                         {
-                            il.Emit(OpCodes.Add);
+                            var temp = il.DeclareLocal(typeof(int));
+                            il.Emit(OpCodes.Dup);         // [obj, newValue, newValue]
+                            il.Emit(OpCodes.Stloc, temp);  // [obj, newValue]
+                            il.Emit(OpCodes.Stfld, field); // []
+                            il.Emit(OpCodes.Ldloc, temp);  // [newValue] ← left on stack
                         }
                         else
                         {
-                            il.Emit(OpCodes.Sub);
+                            il.Emit(OpCodes.Stfld, field); // []
                         }
-
-                        if (node is ExpressionIncrementer)//to leave the value on the stack
-                        {
-                            il.Emit(OpCodes.Dup);
-                        }
-                        il.Emit(OpCodes.Stloc, incrementer.Name.Name);//store incremented value
                     }
                     else
                     {
-                        var field = classBuilders[incrementer.Name.Owner].TypeBuilder.GetField(incrementer.Name.Name)!;
-
-                        // Two refs: one consumed by ldfld, one stays for stfld
-                        il.Emit(OpCodes.Ldloc, locals[incrementer.Name.Owner]);
-                        il.Emit(OpCodes.Dup);
-                        il.Emit(OpCodes.Ldfld, field); // stack: [obj, oldValue]
-
-                        if (incrementer.IsPre)
+                        // stack: [obj, oldValue]
+                        if (node is ExpressionIncrementer)
                         {
+                            var temp = il.DeclareLocal(typeof(int));
+                            il.Emit(OpCodes.Dup);         // [obj, oldValue, oldValue]
+                            il.Emit(OpCodes.Stloc, temp);  // [obj, oldValue]
                             il.Emit(OpCodes.Ldc_I4_1);
                             il.Emit(incrementer.IsIncrement ? OpCodes.Add : OpCodes.Sub);
-                            // stack: [obj, newValue]
-
-                            if (node is ExpressionIncrementer)
-                            {
-                                var temp = il.DeclareLocal(typeof(int));
-                                il.Emit(OpCodes.Dup);         // [obj, newValue, newValue]
-                                il.Emit(OpCodes.Stloc, temp);  // [obj, newValue]
-                                il.Emit(OpCodes.Stfld, field); // []
-                                il.Emit(OpCodes.Ldloc, temp);  // [newValue] ← left on stack
-                            }
-                            else
-                            {
-                                il.Emit(OpCodes.Stfld, field); // []
-                            }
+                            il.Emit(OpCodes.Stfld, field); // []
+                            il.Emit(OpCodes.Ldloc, temp);  // [oldValue] ← left on stack
                         }
                         else
                         {
-                            // stack: [obj, oldValue]
-                            if (node is ExpressionIncrementer)
-                            {
-                                var temp = il.DeclareLocal(typeof(int));
-                                il.Emit(OpCodes.Dup);         // [obj, oldValue, oldValue]
-                                il.Emit(OpCodes.Stloc, temp);  // [obj, oldValue]
-                                il.Emit(OpCodes.Ldc_I4_1);
-                                il.Emit(incrementer.IsIncrement ? OpCodes.Add : OpCodes.Sub);
-                                il.Emit(OpCodes.Stfld, field); // []
-                                il.Emit(OpCodes.Ldloc, temp);  // [oldValue] ← left on stack
-                            }
-                            else
-                            {
-                                il.Emit(OpCodes.Ldc_I4_1);
-                                il.Emit(incrementer.IsIncrement ? OpCodes.Add : OpCodes.Sub);
-                                il.Emit(OpCodes.Stfld, field); // []
-                            }
+                            il.Emit(OpCodes.Ldc_I4_1);
+                            il.Emit(incrementer.IsIncrement ? OpCodes.Add : OpCodes.Sub);
+                            il.Emit(OpCodes.Stfld, field); // []
                         }
                     }
                 }
@@ -641,6 +612,21 @@ namespace Compiler
                 il.Emit(OpCodes.Ret);
                 return;
             }
+            else if (node is PrintStatement)
+            {
+                var body = (node.Children[0] as ASTNode)!;
+                EmitMethodBody(il, body, locals, args, symbols, labels, localMethods);
+                if (body.Token is StringValue)
+                {
+                    il.Emit(OpCodes.Call, typeof(Console).GetMethod("WriteLine", [typeof(string)])!);
+                }
+                else if (body.Token is Identifier)
+                {
+                    string variableName = body.Token.Text;
+                    il.Emit(OpCodes.Call, typeof(Console).GetMethod("WriteLine", [symbols[variableName]])!);
+                }
+                return;
+            }
 
             for (int i = 0; i < node.Children.Count; i++)
             {
@@ -664,4 +650,4 @@ namespace Compiler
 
         private static List<VarInfo> ConvertParams(List<FunctionParameter> parameters) => parameters.Select(x => new VarInfo(x.Type)).ToList();
     }
-}*/
+}

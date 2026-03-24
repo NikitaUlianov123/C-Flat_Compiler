@@ -416,7 +416,9 @@ namespace Compiler
             if (Children[0] is StringValue)
             {
                 TypeExpected = "string";
+                Children[0] = new ASTNode((Children[0] as IToken)!);
             }
+
             return this;
         }
     }
@@ -611,17 +613,33 @@ namespace Compiler
         public bool IsIncrement = true;
         public override ParseNode Hoist()
         {
-            base.Hoist();
+            //base.Hoist();
 
-            if (Children[0] is not Identifier)
+            if (Children[0] is IncrementOperator or DecrementOperator)
             {
                 IsPre = true;
-                Name = Children[1] as VariableName;
+                if (Children[1] is VariableName name)
+                {
+                    Name = Children[1] as VariableName;
+                }
+                else
+                {
+                    var node = Children[1] as ASTNode;
+                    Name = new VariableName(node!.Token.Text, "");
+                }
                 Children.RemoveAt(1);
             }
             else
             {
-                Name = Children[0] as VariableName;
+                if (Children[0] is VariableName name)
+                {
+                    Name = Children[0] as VariableName;
+                }
+                else
+                {
+                    var node = Children[0] as ASTNode;
+                    Name = new VariableName(node!.Token.Text, "");
+                }
                 Children.RemoveAt(0);
             }
 

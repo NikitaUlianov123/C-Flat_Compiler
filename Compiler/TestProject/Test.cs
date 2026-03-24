@@ -1580,7 +1580,8 @@ namespace TestProject
         #endregion
     }
 
-    /*[TestClass]
+    [TestClass]
+    [DoNotParallelize]
     public sealed class FullProgram
     {
         #region Helpers
@@ -1667,8 +1668,9 @@ namespace TestProject
         }
         #endregion
 
+        //cd C:\Users\test\Documents\Github\C-Flat_Compiler\Compiler\TestProject\bin\Debug\net10.0
+
         [TestMethod]
-        [DoNotParallelize]
         public void WhileElseTest()
         {
             string program =
@@ -1707,7 +1709,7 @@ namespace TestProject
 
             expectedOutput = "Loop\r\nLoop\r\n";
 
-            name = "WhileElse";
+            name = "WhileElse2";
 
             Compile(program, name);
 
@@ -1716,7 +1718,6 @@ namespace TestProject
         }
 
         [TestMethod]
-        [DoNotParallelize]
         public void FunctionTest()
         {
             string program =
@@ -1740,7 +1741,6 @@ namespace TestProject
         }
 
         [TestMethod]
-        [DoNotParallelize]
         public void ForLoopTest()
         {
             string program =
@@ -1809,7 +1809,6 @@ namespace TestProject
         }
 
         [TestMethod]
-        [DoNotParallelize]
         public void GotoTest()
         {
             string program =
@@ -1845,7 +1844,32 @@ namespace TestProject
         }
 
         [TestMethod]
-        [DoNotParallelize]
+        public void IfTest()
+        {
+            string program =
+                "int a = 200;\r\n" +
+                "\r\n" +
+                "if(a < 37)\r\n" +
+                "{\r\n" +
+                    "\tprint(\"Hi\");\r\n" +
+                "}\r\n" +
+                "else\r\n" +
+                "{\r\n" +
+                    "\tprint(\"Sup\");\r\n" +
+                "}";
+
+            string expectedOutput =
+                "Sup\r\n";
+
+            string name = "If";
+
+            Compile(program, name);
+
+            CheckEntryPoint($"{name}.exe");
+            CheckOutput($"{name}.exe", expectedOutput);
+        }
+
+        [TestMethod]
         public void IfElseTest()
         {
             string program =
@@ -1887,7 +1911,6 @@ namespace TestProject
         }
 
         [TestMethod]
-        [DoNotParallelize]
         public void GuessingGameTest()
         {
             string program =
@@ -1936,7 +1959,6 @@ namespace TestProject
         }
 
         [TestMethod]
-        [DoNotParallelize]
         public void IncrementerTest()
         {
             string program =
@@ -1968,7 +1990,46 @@ namespace TestProject
         }
 
         [TestMethod]
-        [DoNotParallelize]
+        public void ClassFieldIncrementerTest()
+        {
+            string program =
+                "class Cat\r\n" +
+                "{\r\n" +
+                "   int a;\r\n" +
+                "   int b;\r\n" +
+                "   int c;\r\n" +
+                "   int d;\r\n" +
+                "   int e;\r\n" +
+                "}\r\n" +
+                "Cat bob = new Cat();\r\n" +
+                "bob.a = 3;\r\n" +
+                "bob.b = a++;\r\n" +
+                "bob.c = --b;\r\n" +
+                "bob.d = ++a + 2;\r\n" +
+                "bob.e = d;\r\n" +
+                "bob.a++;\r\n" +
+                "print(bob.a);\r\n" +
+                "print(bob.b);\r\n" +
+                "print(bob.c);\r\n" +
+                "print(bob.d);\r\n" +
+                "print(bob.e);\r\n";
+
+            string expectedOutput =
+                "6\r\n" +
+                "2\r\n" +
+                "2\r\n" +
+                "7\r\n" +
+                "7\r\n";
+
+            string name = "Incrementer";
+
+            Compile(program, name);
+
+            CheckEntryPoint($"{name}.exe");
+            CheckOutput($"{name}.exe", expectedOutput);
+        }
+
+        [TestMethod]
         public void FunctionParamTest()
         {
             string program =
@@ -1999,7 +2060,6 @@ namespace TestProject
 
 
         [TestMethod]
-        [DoNotParallelize]
         public void FunctionReturnTest()
         {
             string program =
@@ -2030,7 +2090,6 @@ namespace TestProject
         }
 
         [TestMethod]
-        [DoNotParallelize]
         public void ClassTest()
         {
             string program =
@@ -2067,7 +2126,6 @@ namespace TestProject
         }
 
         [TestMethod]
-        [DoNotParallelize]
         public void ConstructorTest()
         {
             string program =
@@ -2097,5 +2155,5 @@ namespace TestProject
             CheckEntryPoint($"{name}.exe");
             CheckOutput($"{name}.exe", expectedOutput);
         }
-    }*/
+    }
 }

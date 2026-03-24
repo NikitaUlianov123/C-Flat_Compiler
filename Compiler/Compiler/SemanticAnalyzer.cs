@@ -138,7 +138,7 @@ namespace Compiler
                    Name == func.Name &&
                    Parameters.SequenceEqual(func.Parameters) &&
                    ReturnType == func.ReturnType &&
-                   Owner.Equals(func.Owner);
+                   Owner.Name.Equals(func.Owner.Name);
         }
 
         public override int GetHashCode() => base.GetHashCode();//makes the warning go away
@@ -390,7 +390,9 @@ namespace Compiler
         {
             ErrorWriter.Reset();
             scopes = GetClasses(node);
+            scopes.currFunc.Labels = GetLabels(node, []);
             CheckFunctions(node, scopes);
+
 
             return ErrorWriter.Messages;
         }
