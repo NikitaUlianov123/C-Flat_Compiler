@@ -495,6 +495,10 @@ namespace Compiler
             }
             else //we're in main
             {
+                if(scopes.currClass.Name == "Program")
+                {
+                    scopes.ChangeMethod("Main", []);
+                }
                 CheckFunctionBody(node);
             }
 
@@ -570,6 +574,10 @@ namespace Compiler
                     }
                 }
 
+                foreach (ParseNode child in curr.Children.Where(x => x is FunctionCall))
+                {
+                    CheckFunctionBody(child);
+                }
 
                 if (node.TypeExpected != "")
                 {

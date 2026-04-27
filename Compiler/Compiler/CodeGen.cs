@@ -46,7 +46,9 @@ namespace Compiler
             [typeof(OrOperator)] = OpCodes.Or,
         };
 
-        private static readonly Dictionary<string, Type> TypeMap = new()
+        private static Dictionary<string, Type> TypeMap;
+
+        private static readonly Dictionary<string, Type> BaseTypes = new()
         {
             ["int"] = typeof(int),
             ["string"] = typeof(string),
@@ -60,8 +62,6 @@ namespace Compiler
             ["byte"] = typeof(byte),
             ["void"] = typeof(void),
         };
-
-
 
         private class ClassBuilder
         {
@@ -90,6 +90,7 @@ namespace Compiler
             MainLabels = [];
             MainLocals = [];
             MainSymbols = [];
+            TypeMap = BaseTypes.Select(x => x).ToDictionary(k => k.Key, v => v.Value);//Dictionary.Copy() yooo!
 
 
             string fileName = assemblyName + ".exe";
@@ -150,28 +151,25 @@ namespace Compiler
             // Define type
             classBuilders.Add(classy.Name, new ClassBuilder(classy, modBuilder.DefineType(classy.Name, TypeAttributes.Public | TypeAttributes.Class)));
 
+            TypeMap.Add(classy.Name, classBuilders[classy.Name].TypeBuilder);
+
             foreach (var field in classy.Fields)
             {
                 classBuilders[classy.Name].TypeBuilder.DefineField(field.Key, TypeMap[field.Value.Type], FieldAttributes.Public);
             }
             foreach (var method in classy.Methods)
             {
-                if (method.Name == "Main" && method.Owner.Name == "Program")
+                MethodAttributes attributes = MethodAttributes.Public;
+                if (/*method.Name == "Main" &&*/ method.Owner.Name == "Program")
                 {
-                    classBuilders[classy.Name].Methods.Add(method, classBuilders[classy.Name].TypeBuilder.DefineMethod(
-                        method.Name,
-                        MethodAttributes.Public | MethodAttributes.Static,
-                        returnType: TypeMap[method.ReturnType],
-                        parameterTypes: method.Parameters.Select(x => TypeMap[x.Type]).ToArray()));
+                    attributes |= MethodAttributes.Static;
                 }
-                else
-                {
-                    classBuilders[classy.Name].Methods.Add(method, classBuilders[classy.Name].TypeBuilder.DefineMethod(
-                        method.Name,
-                        MethodAttributes.Public,
-                        returnType: TypeMap[method.ReturnType],
-                        parameterTypes: method.Parameters.Select(x => TypeMap[x.Type]).ToArray()));
-                }
+
+                classBuilders[classy.Name].Methods.Add(method, classBuilders[classy.Name].TypeBuilder.DefineMethod(
+                    method.Name,
+                    attributes,
+                    returnType: TypeMap[method.ReturnType],
+                    parameterTypes: method.Parameters.Select(x => TypeMap[x.Type]).ToArray()));
             }
         }
 
