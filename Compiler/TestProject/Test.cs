@@ -1323,7 +1323,7 @@ namespace TestProject
                 "        return age;\r\n" +
                 "    }\r\n" +
                 "}";
-            InvalidSemanticsTest(program);
+            ValidSemanticsTest(program);
         }
         #endregion
 

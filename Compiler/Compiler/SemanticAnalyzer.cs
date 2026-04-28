@@ -151,10 +151,11 @@ namespace Compiler
         public string Name;
         public ClassInfo(string name)
         {
+            Name = name;
             Fields = [];
             Methods = [];
             Constructors = [];
-            Name = name;
+            AddConstructor([]);//default constructor
         }
 
         public void AddMethod(string Name, List<(string name, VarInfo info)> Parameters, string ReturnType)
@@ -182,6 +183,12 @@ namespace Compiler
         }
         public void AddConstructor(List<(string name, VarInfo info)> Parameters)
         {
+            if (Parameters.Count == 0)
+            {
+                //replace the default constructor
+                Constructors.RemoveAll(c => c.Parameters.Count == 0);
+            }
+
             Function func = new Function($"{Name} constructor", Parameters, this.Name, this);
             if (Constructors.Contains(func))
             {
@@ -257,7 +264,7 @@ namespace Compiler
         }
         public bool TryGetConstructor(List<VarInfo> parameters, [NotNullWhen(true)] out Function? function)
         {
-            function = Methods.Find(x => x.Parameters.SequenceEqual(parameters));
+            function = Constructors.Find(x => x.Parameters.SequenceEqual(parameters));
             return function != null;
         }
 

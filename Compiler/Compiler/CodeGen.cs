@@ -112,16 +112,16 @@ namespace Compiler
             var il = main.Value.GetILGenerator();
             MainLabels = MapLabels(il, main.Key.Labels);
 
-            EmitEverything(tree, scopes);
-
-            il.Emit(OpCodes.Ret);
-
 
             // Complete the types
             foreach (var classy in classBuilders)
             {
                 classy.Value.TypeBuilder.CreateType();
             }
+
+            EmitEverything(tree, scopes);
+
+            il.Emit(OpCodes.Ret);
 
             //Generate metadata and assembly
             var metadata = asmBuilder.GenerateMetadata(out var ilStream, out var fieldData);
@@ -351,7 +351,7 @@ namespace Compiler
                 }
                 else
                 {
-                    il.Emit(OpCodes.Stfld, classBuilders[assignment.Name.Owner].TypeBuilder.GetField(assignment.Name.Name)!);
+                    il.Emit(OpCodes.Stfld, classBuilders[symbols[assignment.Name.Owner].Name].TypeBuilder.GetField(assignment.Name.Name)!);
                 }
                 return;
             }
@@ -612,16 +612,37 @@ namespace Compiler
             }
             else if (node is PrintStatement)
             {
-                var body = (node.Children[0] as ASTNode)!;
+                var body = (node.Children[0] as ParseNode)!;
                 EmitMethodBody(il, body, locals, args, symbols, labels, localMethods);
-                if (body.Token is StringValue)
+                if (body is ASTNode asty)
                 {
-                    il.Emit(OpCodes.Call, typeof(Console).GetMethod("WriteLine", [typeof(string)])!);
+                    if (asty.Token is StringValue)
+                    {
+                        il.Emit(OpCodes.Call, typeof(Console).GetMethod("WriteLine", [typeof(string)])!);
+                    }
+                    else if (asty.Token is Identifier)
+                    {
+                        string variableName = asty.Token.Text;
+                        il.Emit(OpCodes.Call, typeof(Console).GetMethod("WriteLine", [symbols[variableName]])!);
+                    }
                 }
-                else if (body.Token is Identifier)
+                else
                 {
-                    string variableName = body.Token.Text;
-                    il.Emit(OpCodes.Call, typeof(Console).GetMethod("WriteLine", [symbols[variableName]])!);
+                    if (body is VariableName name)
+                    {
+                        if (name.Owner == "")
+                        {
+                            il.Emit(OpCodes.Call, typeof(Console).GetMethod("WriteLine", [symbols[name.Name]])!);
+                        }
+                        else
+                        { 
+                            il.Emit(OpCodes.Call, typeof(Console).GetMethod("WriteLine", [TypeMap[classBuilders[symbols[name.Owner].Name].ClassInfo.Fields[name.Name].Type]])!);
+                        }
+                    }
+                    else
+                    {
+                        ;
+                    }
                 }
                 return;
             }
