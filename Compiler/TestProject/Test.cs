@@ -2115,9 +2115,10 @@ namespace TestProject
                 "}";
 
             string expectedOutput =
-                "Bob\r\n";
+                "Bob\r\n" +
+                "0\r\n";
 
-            string name = "Constructor";
+            string name = "Class";
 
             Compile(program, name);
 
