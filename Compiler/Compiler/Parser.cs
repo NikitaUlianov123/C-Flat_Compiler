@@ -613,7 +613,7 @@ namespace Compiler
         public bool IsIncrement = true;
         public override ParseNode Hoist()
         {
-            //base.Hoist();
+            base.Hoist();
 
             if (Children[0] is IncrementOperator or DecrementOperator)
             {

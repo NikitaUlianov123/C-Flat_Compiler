@@ -463,7 +463,7 @@ namespace Compiler
                 }
                 else
                 {
-                    var field = classBuilders[incrementer.Name.Owner].TypeBuilder.GetField(incrementer.Name.Name)!;
+                    var field = classBuilders[symbols[incrementer.Name.Owner].Name].TypeBuilder.GetField(incrementer.Name.Name)!;
 
                     // Two refs: one consumed by ldfld, one stays for stfld
                     il.Emit(OpCodes.Ldloc, locals[incrementer.Name.Owner]);

@@ -2003,10 +2003,10 @@ namespace TestProject
                 "}\r\n" +
                 "Cat bob = new Cat();\r\n" +
                 "bob.a = 3;\r\n" +
-                "bob.b = a++;\r\n" +
-                "bob.c = --b;\r\n" +
-                "bob.d = ++a + 2;\r\n" +
-                "bob.e = d;\r\n" +
+                "bob.b = bob.a++;\r\n" +
+                "bob.c = --bob.b;\r\n" +
+                "bob.d = ++bob.a + 2;\r\n" +
+                "bob.e = bob.d;\r\n" +
                 "bob.a++;\r\n" +
                 "print(bob.a);\r\n" +
                 "print(bob.b);\r\n" +

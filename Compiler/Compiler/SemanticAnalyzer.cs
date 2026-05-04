@@ -484,9 +484,9 @@ namespace Compiler
             else if (node is ClassDeclaration classy)
             {
                 scopes.ChangeClass(classy.Name);
-                foreach (var child in node.Children)
+                foreach (FunctionDeclaration func in node.Children.Where(x => x is FunctionDeclaration))
                 {
-                    CheckFunctions((child as ParseNode)!, scopes);
+                    CheckFunctions(func, scopes);
                 }
                 scopes.ChangeClass("Program");//reset to Program for top level statements
             }
@@ -497,9 +497,9 @@ namespace Compiler
                     CheckFunctions((child as ParseNode)!, scopes);
                 }
             }
-            else //we're in main
+            else
             {
-                if(scopes.currClass.Name == "Program")
+                if(scopes.currClass.Name == "Program") //we're in main
                 {
                     scopes.ChangeMethod("Main", []);
                 }
