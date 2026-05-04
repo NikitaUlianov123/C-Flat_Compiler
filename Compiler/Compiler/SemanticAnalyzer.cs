@@ -230,9 +230,9 @@ namespace Compiler
             }
             return method;
         }
-        public void CheckConstructorCall(List<VarInfo> parameters)
+        public bool CheckConstructorCall(List<VarInfo> parameters)
         {
-            Function? method = Methods.Find(x => x.Parameters.SequenceEqual(parameters));
+            Function? method = Constructors.Find(x => x.Parameters.SequenceEqual(parameters));
             if (method is null)
             {
                 StringBuilder sb = new StringBuilder();
@@ -247,7 +247,9 @@ namespace Compiler
                     sb.Append('.');
                 }
                 ErrorWriter.Add(sb.ToString());
+                return false;
             }
+            return true;
         }
         public void AddField(string name, VarInfo field)
         {
@@ -377,13 +379,8 @@ namespace Compiler
                 ErrorWriter.Add($"Class {owner} not found.");
                 return false;
             }
-
-            if (!ownerClass.TryGetConstructor(parameters, out function))
-            {
-                ErrorWriter.Add($"No such constructor in class {owner}.");
-                return false;
-            }
-            return true;
+            ownerClass.TryGetConstructor(parameters, out function);
+            return ownerClass.CheckConstructorCall(parameters);
         }
 
 
@@ -442,13 +439,13 @@ namespace Compiler
                     foreach (var child in classy.Children)
                     {
                         ErrorWriter.Move((child as ParseNode)!.Location);
-                        if (child is FunctionDeclaration funcy)
-                        {
-                            scopes.currClass.AddMethod(funcy.Name, funcy.Parameters.Select(x => (x.Name, new VarInfo(x.Type))).ToList(), funcy.ReturnType);
-                        }
-                        else if (child is ConstructorDeclaration constr)
+                        if (child is ConstructorDeclaration constr)
                         {
                             scopes.currClass.AddConstructor(constr.Parameters.Select(x => (x.Name, new VarInfo(x.Type))).ToList());
+                        }
+                        else if (child is FunctionDeclaration funcy)
+                        {
+                            scopes.currClass.AddMethod(funcy.Name, funcy.Parameters.Select(x => (x.Name, new VarInfo(x.Type))).ToList(), funcy.ReturnType);
                         }
                         else if (child is VariableDeclaration vari)
                         {
@@ -743,6 +740,7 @@ namespace Compiler
                 if (scopes.TryGetVar(name, out var info))
                 {
                     ErrorWriter.MoveBack();
+                    node.TypeExpected = info.Type;
                     return info;
                 }
                 ErrorWriter.MoveBack();
@@ -753,6 +751,7 @@ namespace Compiler
                 if (scopes.currFunc.TryGetLocalVar(id.Text, out var info))
                 {
                     ErrorWriter.MoveBack();
+                    node.TypeExpected = info.Type;
                     return info;
                 }
                 ErrorWriter.MoveBack();
@@ -761,16 +760,19 @@ namespace Compiler
             else if (node.Token is NumericValue)
             {
                 ErrorWriter.MoveBack();
+                node.TypeExpected = "int";
                 return new VarInfo("int");
             }
             else if (node.Token is StringValue)
             {
                 ErrorWriter.MoveBack();
+                node.TypeExpected = "string";
                 return new VarInfo("string");
             }
             else if (node.Token is BoolLiteral or TrueKeyword or FalseKeyword)
             {
                 ErrorWriter.MoveBack();
+                node.TypeExpected = "bool";
                 return new VarInfo("bool");
             }
             

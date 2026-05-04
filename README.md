@@ -36,6 +36,7 @@ CST'd Features:
 Tokenized Features:  
   
 ToDo Features:  
+"not all code paths return a value"
 class function access modifiers
 properties  
 inheritance  
@@ -51,4 +52,3 @@ arrays
 type inference?(var)  
 delegates(func/action)  
 user input  
-///////////////Type checking incomplete, eg doesn't type check for loops. Need to fix + write better tests

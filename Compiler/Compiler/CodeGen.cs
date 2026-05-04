@@ -68,6 +68,7 @@ namespace Compiler
             public ClassInfo ClassInfo;
             public TypeBuilder TypeBuilder { get; init; }
             public Dictionary<Function, MethodBuilder> Methods { get; init; } = [];
+            public Dictionary<Function, ConstructorBuilder> Constructors { get; init; } = [];
 
             public ClassBuilder(ClassInfo classInfo, TypeBuilder typeBuilder)
             {
@@ -171,28 +172,51 @@ namespace Compiler
                     returnType: TypeMap[method.ReturnType],
                     parameterTypes: method.Parameters.Select(x => TypeMap[x.Type]).ToArray()));
             }
+            foreach (var constructor in classy.Constructors)
+            {
+                MethodAttributes attributes = MethodAttributes.Public;
+
+                classBuilders[classy.Name].Constructors.Add(constructor, classBuilders[classy.Name].TypeBuilder.DefineConstructor(
+                    attributes,
+                    CallingConventions.Standard,
+                    parameterTypes: constructor.Parameters.Select(x => TypeMap[x.Type]).ToArray()));
+            }
         }
 
         private static void EmitEverything(ParseNode tree, ScopeStack scopes)
         {
             //top level functions (in Program)
-            if (tree is FunctionDeclaration funcy)
+            if (tree is ClassDeclaration classy)
             {
-                StartEmittingMethod("Program", funcy);
-            }
-            else if (tree is ClassDeclaration classy)
-            {
+                var emittedCtorSignatures = new HashSet<string>();
                 foreach (var child in classy.Children.Where(x => x is FunctionDeclaration))
                 {
-                    if (child is ConstructorDeclaration)
+                    if (child is ConstructorDeclaration ctor)
                     {
-                        throw new NotImplementedException();
+                        StartEmittingConstructor(classy.Name, ctor);
+                        emittedCtorSignatures.Add(string.Join(",", ctor.Parameters.Select(p => p.Type)));
                     }
                     else
                     {
                         StartEmittingMethod(classy.Name, (child as FunctionDeclaration)!);
                     }
                 }
+
+                foreach (var ctorPair in classBuilders[classy.Name].Constructors)
+                {
+                    var sig = string.Join(",", ctorPair.Key.Parameters.Select(p => p.Type));
+                    if (!emittedCtorSignatures.Contains(sig))
+                    {
+                        var il = ctorPair.Value.GetILGenerator();
+                        il.Emit(OpCodes.Ldarg_0);
+                        il.Emit(OpCodes.Call, typeof(object).GetConstructor(Type.EmptyTypes)!);
+                        il.Emit(OpCodes.Ret);
+                    }
+                }
+            }
+            else if (tree is FunctionDeclaration funcy)
+            {
+                StartEmittingMethod("Program", funcy);
             }
             else if (tree is Program)//this should only be top level code
             {
@@ -215,22 +239,50 @@ namespace Compiler
             var method = classBuilders[className].Methods.First(x => x.Key.Name == func.Name && x.Key.Parameters.SequenceEqual(ConvertParams(func.Parameters)));
             var il = method.Value.GetILGenerator();
             var labels = MapLabels(il, method.Key.Labels);
+            
+            bool isStatic = (method.Value.Attributes & MethodAttributes.Static) != 0;
 
             Dictionary<string, int> args = [];
             Dictionary<string, Type> symbols = [];
             for (int i = 0; i < func.Parameters.Count; i++)
             {
-                args.Add(func.Parameters[i].Name, i);
+                // In instance methods, arg 0 is 'this', so parameters start at 1
+                int argIndex = isStatic ? i : i + 1;
+                args.Add(func.Parameters[i].Name, argIndex);
                 symbols.Add(func.Parameters[i].Name, TypeMap[func.Parameters[i].Type]);
             }
 
             foreach (var child in func.Children)
             {
-                EmitMethodBody(il, (child as ParseNode)!, [], args, symbols, labels, classBuilders[className]);
+                EmitMethodBody(il, (child as ParseNode)!, [], args, symbols, labels, classBuilders[className], isStatic);
             }
             il.Emit(OpCodes.Ret);
         }
 
+        private static void StartEmittingConstructor(string className, ConstructorDeclaration ctor)
+        {
+            var constructor = classBuilders[className].Constructors.First(x => x.Key.Parameters.SequenceEqual(ConvertParams(ctor.Parameters)));
+            var il = constructor.Value.GetILGenerator();
+            var labels = MapLabels(il, constructor.Key.Labels);
+
+            Dictionary<string, int> args = [];
+            Dictionary<string, Type> symbols = [];
+
+            il.Emit(OpCodes.Ldarg_0);
+            il.Emit(OpCodes.Call, typeof(object).GetConstructor(Type.EmptyTypes)!);//call to base constructor
+            for (int i = 0; i < ctor.Parameters.Count; i++)
+            {
+                // In constructors (instance methods), arg 0 is 'this', so parameters start at 1
+                args.Add(ctor.Parameters[i].Name, i + 1);
+                symbols.Add(ctor.Parameters[i].Name, TypeMap[ctor.Parameters[i].Type]);
+            }
+
+            foreach (var child in ctor.Children)
+            {
+                EmitMethodBody(il, (child as ParseNode)!, [], args, symbols, labels, classBuilders[className], isStatic: false);
+            }
+            il.Emit(OpCodes.Ret);
+        }
 
         private static void EmitMethodBody(ILGenerator il,
                                            ParseNode node,
@@ -238,7 +290,8 @@ namespace Compiler
                                            Dictionary<string, int> args,
                                            Dictionary<string, Type> symbols,
                                            Dictionary<string, System.Reflection.Emit.Label> labels,
-                                           ClassBuilder currentClass)
+                                           ClassBuilder currentClass,
+                                           bool isStatic = false) // Add this parameter
         {
             if (node is ASTNode ast)
             {
@@ -706,24 +759,14 @@ namespace Compiler
                 {
                     il.Emit(OpCodes.Ldarg, argId);
                 }
-                else if (currentClass.TypeBuilder.GetField(name) is FieldInfo field)
+                else if (!isStatic && currentClass.TypeBuilder.GetField(name) is FieldInfo field)
                 {
+                    il.Emit(OpCodes.Ldarg_0);  // Load 'this' - only valid in instance methods
                     il.Emit(OpCodes.Ldfld, field);
                 }
                 else throw new Exception($"Could not find {name}");
             }
 
-            void storeVariableValue(VariableName name)
-            {
-                if (name.Owner == "")
-                {
-                    storeLocalVariableValue(name.Name);
-                }
-                else
-                {
-                    il.Emit(OpCodes.Stfld, classBuilders[symbols[name.Owner].Name].TypeBuilder.GetField(name.Name)!);
-                }
-            }
             void storeLocalVariableValue(string name)
             {
                 if (locals.TryGetValue(name, out int localId))
@@ -736,7 +779,12 @@ namespace Compiler
                 }
                 else if (currentClass.TypeBuilder.GetField(name) is FieldInfo field)
                 {
-                    il.Emit(OpCodes.Stfld, field);
+                    // Value is on stack, need 'this' first
+                    var temp = il.DeclareLocal(field.FieldType);
+                    il.Emit(OpCodes.Stloc, temp);      // Pop value to temp
+                    il.Emit(OpCodes.Ldarg_0);          // Load 'this'
+                    il.Emit(OpCodes.Ldloc, temp);      // Load value back
+                    il.Emit(OpCodes.Stfld, field);     // Store to field
                 }
                 else throw new Exception($"Could not find {name}");
             }
