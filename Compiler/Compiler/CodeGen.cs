@@ -327,6 +327,10 @@ namespace Compiler
                 {
                     il.Emit(OpCodes.Ldc_I4_0);
                 }
+                else if (ast.Token is NullKeyword)
+                {
+                    il.Emit(OpCodes.Ldnull);
+                }
                 #endregion
                 else if (ast.Token is Identifier id)
                 {
@@ -735,22 +739,16 @@ namespace Compiler
                     EmitMethodBody(il, inst.Parameters[i], locals, args, symbols, labels, currentClass);
                 }
 
-                ConstructorInfo? ctor = null;
-
-                ConstructorInfo[] ctors = classBuilders[inst.ClassName].TypeBuilder.GetConstructors();
-                for (int i = 0; i < ctors.Length; i++)
+                ConstructorBuilder ctor;
+                if (inst.Target != null)
                 {
-                    ParameterInfo[] param = ctors[i].GetParameters();
-
-                    if (param.Length != inst.Parameters.Count) continue;
-
-                    if (param.All(x => x.ParameterType.Equals(TypeMap[inst.Parameters[param.ToList().IndexOf(x)].TypeExpected])))
-                    {
-                        ctor = ctors[i];
-                        break;
-                    }
+                    ctor = classBuilders[inst.ClassName].Constructors[inst.Target];
                 }
-                if (ctor is null) throw new Exception("Could not find correct constructor");
+                else
+                {
+                    ctor = classBuilders[inst.ClassName].Constructors
+                        .First(x => x.Key.Parameters.Count == inst.Parameters.Count).Value;
+                }
 
 
                 il.Emit(OpCodes.Newobj, ctor);

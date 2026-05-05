@@ -609,7 +609,20 @@ namespace Compiler
         private static void CheckType(ParseNode node, string type, ScopeStack scopes)
         {
             ErrorWriter.Move(node.Location);
-            if (node is ASTNode ast && ast.Children.Count == 0) //is terminal
+            if (node is ClassInstantiation inst)
+            {
+                if (scopes.TryGetConstructor(inst.ClassName, ConvertParams(inst, scopes), out Function? func))
+                {
+                    inst.Target = func;
+                    if (inst.ClassName != type)
+                    {
+                        ErrorWriter.Add($"Instantiated a(n) {inst.ClassName}, not {type}.");
+                    }
+                }
+                ErrorWriter.MoveBack();
+                return;
+            }
+            else if (node is ASTNode ast && ast.Children.Count == 0) //is terminal
             {
                 CheckTerminalType(ast, type, scopes);
             }
@@ -642,15 +655,15 @@ namespace Compiler
                         }
                         ErrorWriter.MoveBack();
                     }
-                    else if (child is ClassInstantiation inst)
+                    else if (child is ClassInstantiation childInst)
                     {
-                        ErrorWriter.Move(inst.Location);
-                        if (scopes.TryGetConstructor(inst.ClassName, ConvertParams(inst, scopes), out Function? func))
+                        ErrorWriter.Move(childInst.Location);
+                        if (scopes.TryGetConstructor(childInst.ClassName, ConvertParams(childInst, scopes), out Function? func))
                         {
-                            //type check instantiation
-                            if (inst.ClassName != type)
+                            childInst.Target = func;
+                            if (childInst.ClassName != type)
                             {
-                                ErrorWriter.Add($"Instantiated a(n) {inst.ClassName}, not {type}.");
+                                ErrorWriter.Add($"Instantiated a(n) {childInst.ClassName}, not {type}.");
                             }
                         }
                         ErrorWriter.MoveBack();
