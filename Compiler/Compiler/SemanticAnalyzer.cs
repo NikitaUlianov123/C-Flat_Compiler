@@ -322,7 +322,7 @@ namespace Compiler
             currFunc = currClass.Constructors.Find(x => x.Parameters.SequenceEqual(parameters))!;
         }
 
-        public void CheckMethodCall(FunctionCall call, ClassInfo? Class = null)
+        public void CheckMethodCall(FunctionCall call, ClassInfo? Class)
         {
             if (Class is null)
             {
@@ -465,18 +465,18 @@ namespace Compiler
         private static void CheckFunctions(ParseNode node, ScopeStack scopes)
         {
             ErrorWriter.Move(node.Location);
-            if (node is FunctionDeclaration funcy)
+            if (node is ConstructorDeclaration constr)
             {
-                scopes.ChangeMethod(funcy.Name, funcy.Parameters.Select(x => new VarInfo(x.Type)).ToList());
-                foreach (var child in funcy.Children)
+                scopes.ChangeMethod(constr.Parameters.Select(x => new VarInfo(x.Type)).ToList());
+                foreach (var child in constr.Children)
                 {
                     CheckFunctionBody((child as ParseNode)!);
                 }
             }
-            else if (node is ConstructorDeclaration constr)
+            else if (node is FunctionDeclaration funcy)
             {
-                scopes.ChangeMethod(constr.Parameters.Select(x => new VarInfo(x.Type)).ToList());
-                foreach (var child in constr.Children)
+                scopes.ChangeMethod(funcy.Name, funcy.Parameters.Select(x => new VarInfo(x.Type)).ToList());
+                foreach (var child in funcy.Children)
                 {
                     CheckFunctionBody((child as ParseNode)!);
                 }
@@ -513,7 +513,21 @@ namespace Compiler
                 ErrorWriter.Move(curr.Location);
                 if (curr is FunctionCall call)
                 {
-                    scopes.CheckMethodCall(call);
+                    if (call.Owner == "")
+                    {
+                        scopes.CheckMethodCall(call, null);
+                    }
+                    else
+                    {
+                        if (!scopes.TryGetVar(new VariableName(call.Owner, ""), out var owner))
+                        {
+                            ErrorWriter.Add($"Variable '{call.Owner}' not declared in scope.");
+                        }
+                        else
+                        {
+                            scopes.CheckMethodCall(call, scopes.GetClass(owner.Type));
+                        }
+                    }    
                 }
                 else if (curr is VariableDeclaration decl)
                 {
@@ -727,6 +741,14 @@ namespace Compiler
                     ErrorWriter.MoveBack();
                     return false;
                 }
+            }
+            else if (node.Token is NullKeyword)
+            {
+                if (type == "int" || type == "bool" || type == "string")
+                {
+                    return false;
+                }
+                return true;
             }
             ErrorWriter.Add($"Unexpected type mismatch.");
             ErrorWriter.MoveBack();

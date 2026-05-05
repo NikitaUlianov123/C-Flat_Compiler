@@ -41,6 +41,7 @@ namespace Compiler.Tokens
             [@"^return\b"] = (text, row, column) => new ReturnKeyword(text, row, column),
             [@"^class\b"] = (text, row, column) => new ClassKeyword(text, row, column),
             [@"^new\b"] = (text, row, column) => new NewKeyword(text, row, column),
+            [@"^null\b"] = (text, row, column) => new NullKeyword(text, row, column),
 
             //Labels
             [@"^[A-Za-z_][A-Za-z0-9_]*:"] = (text, row, column) => new Label(text, row, column),
@@ -114,6 +115,7 @@ namespace Compiler.Tokens
     public record ReturnKeyword(string Text, int Row, int Column) : IToken;
     public record ClassKeyword(string Text, int Row, int Column) : IToken;
     public record NewKeyword(string Text, int Row, int Column) : IToken;
+    public record NullKeyword(string Text, int Row, int Column) : IToken;
     #endregion
     public record Label(string Text, int Row, int Column) : IToken
     { 

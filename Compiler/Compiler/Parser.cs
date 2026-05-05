@@ -43,10 +43,12 @@ namespace Compiler
             [typeof(VariableDeclarationAndAssignment)] = [[typeof(Identifier), typeof(Identifier), typeof(AssignmentOperator), typeof(VariableValue)]],//int a = 5
             [typeof(VariableAssignment)] = [[typeof(VariableName), typeof(AssignmentOperator), typeof(VariableValue)],//a = 5
                                             [typeof(Incrementer)]],//a++ or --a
-            [typeof(VariableValue)] = [[typeof(MathExpr)],
+            [typeof(VariableValue)] = [[typeof(NullKeyword)],
+                                       [typeof(MathExpr)],
                                        [typeof(StringValue)],
                                        [typeof(BoolExpr)],
-                                       [typeof(ClassInstantiation)]],
+                                       [typeof(ClassInstantiation)],
+                                       ],
 
             [typeof(Incrementer)] = [[typeof(VariableName), typeof(IncrementOperator)],
                                      [typeof(VariableName), typeof(DecrementOperator)],
@@ -72,7 +74,8 @@ namespace Compiler
                                     [typeof(NumericValue)],
                                     [typeof(ExpressionIncrementer)],
                                     [typeof(FunctionCall)],
-                                    [typeof(VariableName)]],
+                                    [typeof(VariableName)],
+                                    [typeof(NullKeyword)]],
 
             [typeof(ExpressionIncrementer)] = [[typeof(VariableName), typeof(IncrementOperator)],//if you just say Incrementer, it will
                                                [typeof(VariableName), typeof(DecrementOperator)],//make every ExpressionIncrementer

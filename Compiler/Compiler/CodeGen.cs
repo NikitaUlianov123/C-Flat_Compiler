@@ -239,7 +239,7 @@ namespace Compiler
             var method = classBuilders[className].Methods.First(x => x.Key.Name == func.Name && x.Key.Parameters.SequenceEqual(ConvertParams(func.Parameters)));
             var il = method.Value.GetILGenerator();
             var labels = MapLabels(il, method.Key.Labels);
-            
+
             bool isStatic = (method.Value.Attributes & MethodAttributes.Static) != 0;
 
             Dictionary<string, int> args = [];
@@ -405,7 +405,7 @@ namespace Compiler
                     storeLocalVariableValue(assignment.Name.Name);
                 }
                 else
-                { 
+                {
                     il.Emit(OpCodes.Ldloc, locals[assignment.Name.Owner]);//load object reference
 
                     //Emit value
@@ -649,6 +649,10 @@ namespace Compiler
             }
             else if (node is FunctionCall call)
             {
+                if (call.Owner != "")
+                {
+                    loadLocalVariableValue(call.Owner);//load object reference for method call
+                }
                 for (int i = 0; i < call.Parameters.Count; i++)
                 {
                     EmitMethodBody(il, call.Parameters[i], locals, args, symbols, labels, currentClass);
@@ -659,7 +663,7 @@ namespace Compiler
                 }
                 else
                 {
-                    il.EmitCall(OpCodes.Call, classBuilders[call.Owner].Methods[call.Target!], null);
+                    il.EmitCall(OpCodes.Call, classBuilders[symbols[call.Owner].Name].Methods[call.Target!], null);
                 }
                 return;
             }
@@ -670,7 +674,7 @@ namespace Compiler
                     EmitMethodBody(il, @return.Value, locals, args, symbols, labels, currentClass);
                 }
 
-                il.Emit(OpCodes.Ret);
+                //il.Emit(OpCodes.Ret);
                 return;
             }
             else if (node is PrintStatement)
@@ -723,7 +727,7 @@ namespace Compiler
                 {
                     ParameterInfo[] param = ctors[i].GetParameters();
 
-                    if(param.Length != inst.Parameters.Count) continue;
+                    if (param.Length != inst.Parameters.Count) continue;
 
                     if (param.All(x => x.ParameterType.Equals(TypeMap[inst.Parameters[param.ToList().IndexOf(x)].TypeExpected])))
                     {
@@ -732,7 +736,7 @@ namespace Compiler
                     }
                 }
                 if (ctor is null) throw new Exception("Could not find correct constructor");
-                
+
 
                 il.Emit(OpCodes.Newobj, ctor);
 

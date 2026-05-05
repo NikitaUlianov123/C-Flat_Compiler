@@ -2095,6 +2095,7 @@ namespace TestProject
             string program =
                 "Cat bob = new Cat();\r\n" +
                 "bob.Name = \"Bob\";\r\n" +
+                "bob.SetAge(2);\r\n" +
                 "print(bob.Name);\r\n" +
                 "print(bob.Age);\r\n" +
                 "\r\n" +
@@ -2116,7 +2117,7 @@ namespace TestProject
 
             string expectedOutput =
                 "Bob\r\n" +
-                "0\r\n";
+                "2\r\n";
 
             string name = "Class";
 
@@ -2150,6 +2151,77 @@ namespace TestProject
                 "Bob\r\n";
 
             string name = "Constructor";
+
+            Compile(program, name);
+
+            CheckEntryPoint($"{name}.exe");
+            CheckOutput($"{name}.exe", expectedOutput);
+        }
+
+        [TestMethod]
+        public void LinkedListTest()
+        {
+            string program =
+                "class Node\r\n" +
+                "{\r\n" +
+                "   int Value;\r\n" +
+                "   Node Next;\r\n" +
+                "   Node(int value)" +
+                "   {\r\n" +
+                "       Value = value;\r\n" +
+                "       Next = null;\r\n" +
+                "   }\r\n" +
+                "   Node(int value, Node next)" +
+                "   {\r\n" +
+                "       Value = value;\r\n" +
+                "       Next = next;\r\n" +
+                "   }\r\n" +
+                "}\r\n" +
+                "class LinkedList\r\n" +
+                "{\r\n" +
+                "   Node head;\r\n" +
+                "   LinkedList()\r\n" +
+                "   {\r\n" +
+                "       head = null;\r\n" +
+                "   }\r\n" +
+                "   void AddLast(int value)\r\n" +
+                "   {\r\n" +
+                "       if(head =? null)\r\n" +
+                "       {\r\n" +
+                "           head = new Node(value);\r\n" +
+                "       }\r\n" +
+                "       else\r\n" +
+                "       {\r\n" +
+                "           Node current = head;\r\n" +
+                "           while(current.Next != null)\r\n" +
+                "           {\r\n" +
+                "               current = current.Next;\r\n" +
+                "           }\r\n" +
+                "           current.Next = new Node(value);\r\n" +
+                "       }\r\n" +
+                "   }\r\n" +
+                "   void Print()\r\n" +
+                "   {\r\n" +
+                "       Node current = head;\r\n" +
+                "       while(current != null)\r\n" +
+                "       {\r\n" +
+                "           print(current.Value);\r\n" +
+                "           current = current.Next;\r\n" +
+                "       }\r\n" +
+                "   }\r\n" +
+                "}\r\n" +
+                "LinkedList list = new LinkedList();\r\n" +
+                "list.AddLast(1);\r\n" +
+                "list.AddLast(2);\r\n" +
+                "list.AddLast(3);\r\n" +
+                "list.Print();";
+
+            string expectedOutput =
+                "1\r\n" +
+                "2\r\n" +
+                "3\r\n";
+
+            string name = "LinkedList";
 
             Compile(program, name);
 
