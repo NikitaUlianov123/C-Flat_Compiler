@@ -231,6 +231,11 @@ namespace Compiler
                 var il = main.Value.GetILGenerator();
 
                 EmitMethodBody(il, tree, MainLocals, [], MainSymbols, MainLabels, classBuilders["Program"]);
+
+                if (tree is FunctionCall fc && fc.Target?.ReturnType != "void")
+                {
+                    il.Emit(OpCodes.Pop);
+                }
             }
 
         }
@@ -255,6 +260,11 @@ namespace Compiler
             foreach (var child in func.Children)
             {
                 EmitMethodBody(il, (child as ParseNode)!, [], args, symbols, labels, classBuilders[className], isStatic);
+
+                if (child is FunctionCall fc && fc.Target?.ReturnType != "void")
+                {
+                    il.Emit(OpCodes.Pop);
+                }
             }
             il.Emit(OpCodes.Ret);
         }
@@ -280,6 +290,11 @@ namespace Compiler
             foreach (var child in ctor.Children)
             {
                 EmitMethodBody(il, (child as ParseNode)!, [], args, symbols, labels, classBuilders[className], isStatic: false);
+
+                if (child is FunctionCall fc && fc.Target?.ReturnType != "void")
+                {
+                    il.Emit(OpCodes.Pop);
+                }
             }
             il.Emit(OpCodes.Ret);
         }
@@ -748,6 +763,11 @@ namespace Compiler
                 if (node.Children[i] is ParseNode pn)
                 {
                     EmitMethodBody(il, pn, locals, args, symbols, labels, currentClass);
+
+                    if (pn is FunctionCall fc && fc.Target?.ReturnType != "void")
+                    {
+                        il.Emit(OpCodes.Pop);
+                    }
                 }
             }
 
