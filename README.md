@@ -1,6 +1,8 @@
 This is a full compiler for a C#-inspired language.  
   
 Contains a Tokenizer, Parser, Syntax Analyzer, and Code Gen.  
+
+**[Full Language Documentation](DOCS.md)**  
   
 Current progress:  
 Fully Implemented Features:  
@@ -19,12 +21,12 @@ while, else
 ++ and --  
 function parameters  
 return functions  
-  
-  
-Semantic Analyzed Features:  
 classes  
 functions in classes  
 function overloads  
+  
+  
+Semantic Analyzed Features:  
   
   
 AST'd Features:  
