@@ -689,6 +689,8 @@ print("Done");
 
 Labels are identifiers followed by a colon (`:`). They must be unique within a function scope. `goto` can only jump to labels within the same function.
 
+Note: A label cannot be the last line in a block of code.
+
 ---
 
 ## Null

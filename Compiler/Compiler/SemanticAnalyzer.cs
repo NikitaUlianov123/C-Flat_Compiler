@@ -309,10 +309,8 @@ namespace Compiler
         {
             currClass = classes[name];
         }
-        public ClassInfo GetClass(string name)
-        {
-            return classes[name];
-        }
+        public bool TryGetClass(string name, [NotNullWhen(true)] out ClassInfo? classInfo) => classes.TryGetValue(name, out classInfo);
+
         public void ChangeMethod(string name, List<VarInfo> parameters)
         {
             currFunc = currClass.Methods.Find(x => x.Name == name && x.Parameters.SequenceEqual(parameters))!;
@@ -322,11 +320,31 @@ namespace Compiler
             currFunc = currClass.Constructors.Find(x => x.Parameters.SequenceEqual(parameters))!;
         }
 
-        public void CheckMethodCall(FunctionCall call, ClassInfo? Class)
+        public void CheckMethodCall(FunctionCall call, ClassInfo? classInfo = null)
         {
-            if (Class is null)
+            ClassInfo? Class;
+            if (classInfo != null)
             {
-                Class = currClass;
+                Class = classInfo;
+            }
+            else
+            {
+                if (call.Owner == "")
+                {
+                    Class = currClass;
+                }
+                else
+                {
+                    if (TryGetVar(new VariableName(call.Owner, ""), out var owner))
+                    {
+                        Class = owner.Class;
+                    }
+                    else
+                    {
+                        ErrorWriter.Add($"Could not find owner {call.Owner}");
+                        return;
+                    }
+                }
             }
             call.Target = Class!.CheckMethodCall(call.Name, SemanticAnalyzer.ConvertParams(call, this));
         }
@@ -395,6 +413,9 @@ namespace Compiler
             ErrorWriter.Reset();
             scopes = GetClasses(node);
             scopes.currFunc.Labels = GetLabels(node, []);
+
+            scopes.ChangeClass("Program");
+
             CheckFunctions(node, scopes);
 
 
@@ -499,7 +520,7 @@ namespace Compiler
             }
             else
             {
-                if(scopes.currClass.Name == "Program") //we're in main
+                if (scopes.currClass.Name == "Program") //we're in main
                 {
                     scopes.ChangeMethod("Main", []);
                 }
@@ -515,7 +536,7 @@ namespace Compiler
                 {
                     if (call.Owner == "")
                     {
-                        scopes.CheckMethodCall(call, null);
+                        scopes.CheckMethodCall(call);
                     }
                     else
                     {
@@ -525,9 +546,16 @@ namespace Compiler
                         }
                         else
                         {
-                            scopes.CheckMethodCall(call, scopes.GetClass(owner.Type));
+                            if (scopes.TryGetClass(owner.Type, out var ownerType))
+                            {
+                                scopes.CheckMethodCall(call, ownerType);
+                            }
+                            else
+                            { 
+                                ErrorWriter.Add($"No such type '{owner.Type}' exists to call function on.");
+                            }
                         }
-                    }    
+                    }
                 }
                 else if (curr is VariableDeclaration decl)
                 {
@@ -537,10 +565,16 @@ namespace Compiler
                     }
                     else
                     {
-
                         if (decl.Children.Count > 0 && decl.Children[0] is ClassInstantiation inst)
                         {
-                            scopes.PushVar(decl.Name, new VarInfo(decl.TypeExpected, scopes.GetClass(inst.ClassName)));
+                            if (scopes.TryGetClass(inst.ClassName, out var classInfo))
+                            {
+                                scopes.PushVar(decl.Name, new VarInfo(decl.TypeExpected, classInfo));
+                            }
+                            else
+                            { 
+                                ErrorWriter.Add($"No such type '{inst.ClassName}' exists to instantiate.");
+                            }
                         }
                         else
                         {
@@ -592,6 +626,14 @@ namespace Compiler
                     }
                 }
 
+                if (curr is ASTNode ast && ast.Token is ReturnKeyword)
+                {
+                    if (scopes.currFunc.ReturnType != "void")
+                    {
+                        ErrorWriter.Add($"Return statement missing value.");
+                    }
+                }
+
                 foreach (ParseNode child in curr.Children.Where(x => x is FunctionCall))
                 {
                     CheckFunctionBody(child);
@@ -619,8 +661,17 @@ namespace Compiler
                         ErrorWriter.Add($"Instantiated a(n) {inst.ClassName}, not {type}.");
                     }
                 }
-                ErrorWriter.MoveBack();
-                return;
+            }
+            else if (node is VariableName name)
+            {
+                if (scopes.TryGetVar(name, out var info))
+                {
+                    if (info.Type != type)
+                    {
+                        ErrorWriter.Add($"Expected type '{type}' but found '{(name.Owner == "" ? name.Name : name.Owner + '.' + name.Name)}'({info.Type}).");
+                    }
+                }
+
             }
             else if (node is ASTNode ast && ast.Children.Count == 0) //is terminal
             {
@@ -639,20 +690,16 @@ namespace Compiler
                     else if (child is FunctionCall call)
                     {
                         ErrorWriter.Move(call.Location);
-                        if (!scopes.TryGetFunc(call.Name, ConvertParams(call, scopes), call.Owner, out Function? func))
+                        scopes.CheckMethodCall(call);
+                        //type check return
+                        //  call.Target is always set in CheckMethodCall, unless there's an error,
+                        //  in which case we don't need to report it again
+                        if (call.Target is not null && call.Target.ReturnType != type)
                         {
-                            ErrorWriter.Add($"Function '{call.Name}' not found.");
+                            ErrorWriter.Add($"Function '{call.Name}' returns {call.Target.ReturnType}, not {type}.");
                         }
-                        else
-                        {
-                            //type check return
-                            if (func.ReturnType != type)
-                            {
-                                ErrorWriter.Add($"Function '{call.Name}' returns {func.ReturnType}, not {type}.");
-                            }
 
-                            //parameters will be type checked automatically later
-                        }
+                        //parameters will be type checked automatically later
                         ErrorWriter.MoveBack();
                     }
                     else if (child is ClassInstantiation childInst)
@@ -676,101 +723,75 @@ namespace Compiler
             }
             ErrorWriter.MoveBack();
         }
-        private static bool CheckTerminalType(ASTNode node, string type, ScopeStack scopes)
+        private static bool CheckTerminalType(ParseNode node, string type, ScopeStack scopes)
         {
             ErrorWriter.Move(node.Location);
-            if (node.Token is VariableName name)
+
+            VarInfo actualType = GetTerminalType(node, scopes);
+            if (type == actualType.Type)
             {
-                if (scopes.TryGetVar(name, out var info))
-                {
-                    if (info.Type == type)
-                    {
-                        ErrorWriter.MoveBack();
-                        return true;
-                    }
-                    else
-                    {
-                        ErrorWriter.Add($"Expected type '{type}' but found '{(name.Owner == "" ? name.Name : name.Owner + '.' + name.Name)}'({info.Type}).");
-                        ErrorWriter.MoveBack();
-                        return false;
-                    }
-                }
+                ErrorWriter.MoveBack();
+                return true;
             }
-            else if (node.Token is Identifier id)
-            {
-                if (scopes.currFunc.TryGetLocalVar(id.Text, out var info))
-                {
-                    if (info.Type == type)
-                    {
-                        ErrorWriter.MoveBack();
-                        return true;
-                    }
-                    else
-                    {
-                        ErrorWriter.Add($"Expected type '{type}' but found '{id.Text}'({info.Type}).");
-                        ErrorWriter.MoveBack();
-                        return false;
-                    }
-                }
-            }
-            else if (node.Token is NumericValue)
-            {
-                if (type == "int")
-                {
-                    ErrorWriter.MoveBack();
-                    return true;
-                }
-                else
-                {
-                    ErrorWriter.Add($"Expected type '{type}' but found int literal.");
-                    ErrorWriter.MoveBack();
-                    return false;
-                }
-            }
-            else if (node.Token is StringValue)
-            {
-                if (type == "string")
-                {
-                    ErrorWriter.MoveBack();
-                    return true;
-                }
-                else
-                {
-                    ErrorWriter.Add($"Expected type '{type}' but found string literal.");
-                    ErrorWriter.MoveBack();
-                    return false;
-                }
-            }
-            else if (node.Token is BoolLiteral or TrueKeyword or FalseKeyword)
-            {
-                if (type == "bool")
-                {
-                    ErrorWriter.MoveBack();
-                    return true;
-                }
-                else
-                {
-                    ErrorWriter.Add($"Expected type '{type}' but found bool literal.");
-                    ErrorWriter.MoveBack();
-                    return false;
-                }
-            }
-            else if (node.Token is NullKeyword)
+            else if (node is ASTNode ast && ast.Token is NullKeyword)
             {
                 if (type == "int" || type == "bool" || type == "string")
                 {
+                    ErrorWriter.Add($"Expected type '{type}' but found null literal.");
+                    ErrorWriter.MoveBack();
                     return false;
                 }
                 return true;
             }
-            ErrorWriter.Add($"Unexpected type mismatch.");
-            ErrorWriter.MoveBack();
-            return false;
+            else
+            {
+                ErrorWriter.Add($"Expected type '{type}' but found {actualType.Type}.");
+                ErrorWriter.MoveBack();
+                return false;
+            }
         }
-        private static VarInfo GetTerminalType(ASTNode node, ScopeStack scopes)
+        private static VarInfo GetTerminalType(ParseNode node, ScopeStack scopes)
         {
             ErrorWriter.Move(node.Location);
-            if (node.Token is VariableName name)
+            if (node is ASTNode ast)
+            {
+                if (ast.Token is Identifier id)
+                {
+                    if (scopes.currFunc.TryGetLocalVar(id.Text, out var info))
+                    {
+                        ErrorWriter.MoveBack();
+                        node.TypeExpected = info.Type;
+                        return info;
+                    }
+                    ErrorWriter.MoveBack();
+                    return new VarInfo("Unknown identifier");
+                }
+                else if (ast.Token is NumericValue)
+                {
+                    ErrorWriter.MoveBack();
+                    node.TypeExpected = "int";
+                    return new VarInfo("int");
+                }
+                else if (ast.Token is StringValue)
+                {
+                    ErrorWriter.MoveBack();
+                    node.TypeExpected = "string";
+                    return new VarInfo("string");
+                }
+                else if (ast.Token is BoolLiteral or TrueKeyword or FalseKeyword)
+                {
+                    ErrorWriter.MoveBack();
+                    node.TypeExpected = "bool";
+                    return new VarInfo("bool");
+                }
+                else if (ast.Token is NullKeyword)
+                {
+                    ErrorWriter.MoveBack();
+                    node.TypeExpected = "null";
+                    return new VarInfo("null");
+                }
+            }
+            else if (node is VariableName name)
             {
                 if (scopes.TryGetVar(name, out var info))
                 {
@@ -781,36 +802,7 @@ namespace Compiler
                 ErrorWriter.MoveBack();
                 return new VarInfo("Unknown identifier");
             }
-            else if (node.Token is Identifier id)
-            {
-                if (scopes.currFunc.TryGetLocalVar(id.Text, out var info))
-                {
-                    ErrorWriter.MoveBack();
-                    node.TypeExpected = info.Type;
-                    return info;
-                }
-                ErrorWriter.MoveBack();
-                return new VarInfo("Unknown identifier");
-            }
-            else if (node.Token is NumericValue)
-            {
-                ErrorWriter.MoveBack();
-                node.TypeExpected = "int";
-                return new VarInfo("int");
-            }
-            else if (node.Token is StringValue)
-            {
-                ErrorWriter.MoveBack();
-                node.TypeExpected = "string";
-                return new VarInfo("string");
-            }
-            else if (node.Token is BoolLiteral or TrueKeyword or FalseKeyword)
-            {
-                ErrorWriter.MoveBack();
-                node.TypeExpected = "bool";
-                return new VarInfo("bool");
-            }
-            
+
             ErrorWriter.MoveBack();
             return new VarInfo("Unknown type");
         }

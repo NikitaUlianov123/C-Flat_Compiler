@@ -190,8 +190,10 @@ namespace Compiler
             }
             root = MakeAST(root);
             root = root.Hoist();
-            if (root is not null && root.Children.Count == 1)
-            { 
+            if (root is not null && root.Children.Count == 1 && root.Children[0] is not ClassDeclaration)
+            {
+                //is it's a ClassDeclaration that means there's no code to run, so it's basically a class library.
+                //we can't collapse that, it messes with the semantic analyzer
                 root = root.Children[0] as ParseNode;
             }
 
@@ -376,7 +378,7 @@ namespace Compiler
     }
 
     public record class Program() : ParseNode
-    { 
+    {
         public override ParseNode Hoist()
         {
             base.Hoist();
@@ -505,7 +507,7 @@ namespace Compiler
             base.Hoist();
             Location = ((Children[0] as IToken)!.Row, (Children[0] as IToken)!.Column);
             if (Children.Count > 1)
-            { 
+            {
                 Owner = (Children[0] as IToken)!.Text;
                 Children.RemoveAt(0);
                 Children.RemoveAt(0);//remove the dot
@@ -913,7 +915,7 @@ namespace Compiler
     {
         public string Name { get; private set; } = "";
         public string Owner { get; private set; } = "";
-        public List<ASTNode> Parameters { get; private set; } = [];
+        public List<ParseNode> Parameters { get; private set; } = [];
 
         public Function? Target = null;
 
@@ -924,7 +926,7 @@ namespace Compiler
             Location = ((Children[0] as IToken)!.Row, (Children[0] as IToken)!.Column);
 
             if (Children[1] is Dot)
-            { 
+            {
                 Owner = (Children[0] as IToken)!.Text;
                 Children.RemoveAt(0);//remove the owner
                 Children.RemoveAt(0);//remove the dot
@@ -937,18 +939,21 @@ namespace Compiler
 
             while ((Children[0] as IToken) is not CloseParenthesis)//there are params
             {
-                if (Children[0] is ASTNode node)
+                if (Children[0] is FunctionCallParameter param)
+                {
+                    Parameters.Add((param.Children[0] as ParseNode)!);
+
+                    Children[0] = param.Children[1];//replace with next param
+                }
+                else if (Children[0] is ParseNode node)
                 {
                     Parameters.Add(node);
                     Children.RemoveAt(0);
                 }
                 else
                 {
-                    FunctionCallParameter param = (Children[0] as FunctionCallParameter)!;
+                    throw new Exception("Function parameter is something weird");
 
-                    Parameters.Add((param.Children[0] as ASTNode)!);
-
-                    Children[0] = param.Children[1];//replace with next param
                 }
             }
 
@@ -1008,7 +1013,7 @@ namespace Compiler
             base.Hoist();
 
             if (Children.Count > 1)
-            { 
+            {
                 Value = Children[1] as ParseNode;
             }
 
@@ -1048,7 +1053,7 @@ namespace Compiler
     }
 
     public record class ClassBody : ParseNode
-    { 
+    {
         public override ParseNode Hoist()
         {
             base.Hoist();
@@ -1062,7 +1067,7 @@ namespace Compiler
         }
     }
     public record class ClassMember : ParseNode
-    { 
+    {
         public override ParseNode Hoist()
         {
             base.Hoist();
@@ -1134,7 +1139,7 @@ namespace Compiler
     public record class ClassInstantiation : ParseNode
     {
         public string ClassName { get; private set; } = "";
-        public List<ASTNode> Parameters { get; private set; } = [];
+        public List<ParseNode> Parameters { get; private set; } = [];
         public Function? Target = null;
         public override ParseNode Hoist()
         {
@@ -1155,7 +1160,7 @@ namespace Compiler
                 else
                 {
                     FunctionCallParameter param = (Children[0] as FunctionCallParameter)!;
-                    Parameters.Add((param.Children[0] as ASTNode)!);
+                    Parameters.Add((param.Children[0] as ParseNode)!);
                     Children[0] = param.Children[1];//replace with next param
                 }
             }

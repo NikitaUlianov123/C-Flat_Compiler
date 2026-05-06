@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Coverage settings scoped to Code Gen: only instrument CodeGen source -->
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="XPlat Code Coverage">
+        <Configuration>
+          <Format>cobertura</Format>
+          <Include>[Compiler]*</Include>
+          <ExcludeByFile>**/Lexer.cs,**/Token.cs,**/Parser.cs,**/SemanticAnalyzer.cs,**/Program.cs</ExcludeByFile>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>

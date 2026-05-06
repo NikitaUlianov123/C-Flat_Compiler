@@ -1578,6 +1578,343 @@ namespace TestProject
             InvalidSemanticsTest(program);
         }
         #endregion
+
+        #region Duplicate declarations
+        [TestMethod, TestCategory("Duplicate declarations")]
+        public void DuplicateVariableDeclaration()
+        {
+            string program =
+                "int a = 2;\n" +
+                "int a = 3;\n";
+            InvalidSemanticsTest(program);
+        }
+        [TestMethod, TestCategory("Duplicate declarations")]
+        public void DuplicateClassDeclaration()
+        {
+            string program =
+                "class Foo\n" +
+                "{\n" +
+                "    int x;\n" +
+                "}\n" +
+                "class Foo\n" +
+                "{\n" +
+                "    int y;\n" +
+                "}\n";
+            InvalidSemanticsTest(program);
+        }
+        [TestMethod, TestCategory("Duplicate declarations")]
+        public void DuplicateMethodInClass()
+        {
+            string program =
+                "class Cat\n" +
+                "{\n" +
+                "    int Age;\n" +
+                "    void Meow(int a)\n" +
+                "    {\n" +
+                "        print(a);\n" +
+                "    }\n" +
+                "    void Meow(int b)\n" +
+                "    {\n" +
+                "        print(b);\n" +
+                "    }\n" +
+                "}\n";
+            InvalidSemanticsTest(program);
+        }
+        [TestMethod, TestCategory("Duplicate declarations")]
+        public void DuplicateConstructorInClass()
+        {
+            string program =
+                "class Cat\n" +
+                "{\n" +
+                "    int Age;\n" +
+                "    Cat(int a)\n" +
+                "    {\n" +
+                "        Age = a;\n" +
+                "    }\n" +
+                "    Cat(int b)\n" +
+                "    {\n" +
+                "        Age = b;\n" +
+                "    }\n" +
+                "}\n";
+            InvalidSemanticsTest(program);
+        }
+        [TestMethod, TestCategory("Duplicate declarations")]
+        public void DuplicateFieldInClass()
+        {
+            string program =
+                "class Cat\n" +
+                "{\n" +
+                "    int Name;\n" +
+                "    int Name;\n" +
+                "}\n";
+            InvalidSemanticsTest(program);
+        }
+        [TestMethod, TestCategory("Duplicate declarations")]
+        public void DuplicateLabel()
+        {
+            string program =
+                "myLabel:\n" +
+                "myLabel:\n" +
+                "int a = 1;";
+            InvalidSemanticsTest(program);
+        }
+        #endregion
+
+        #region Undeclared variable usage
+        [TestMethod, TestCategory("Undeclared variable")]
+        public void IncrementUndeclaredVariable()
+        {
+            string program = "x++;\n";
+            InvalidSemanticsTest(program);
+        }
+        [TestMethod, TestCategory("Undeclared variable")]
+        public void AssignToUndeclaredVariable()
+        {
+            string program = "x = 5;\n";
+            InvalidSemanticsTest(program);
+        }
+        [TestMethod, TestCategory("Undeclared variable")]
+        public void MethodCallOnUndeclaredOwner()
+        {
+            string program =
+                "x.Foo();\n" +
+                "class Cat\n" +
+                "{\n" +
+                "    int Age;\n" +
+                "    void Foo()\n" +
+                "    {\n" +
+                "        print(Age);\n" +
+                "    }\n" +
+                "}\n";
+            InvalidSemanticsTest(program);
+        }
+        #endregion
+
+        #region Goto and label errors
+        [TestMethod, TestCategory("Goto errors")]
+        public void GotoNonexistentLabel()
+        {
+            string program = "goto missing;\n";
+            InvalidSemanticsTest(program);
+        }
+        #endregion
+
+        #region Return statement errors
+        [TestMethod, TestCategory("Return errors")]
+        public void ReturnValueFromVoidFunction()
+        {
+            string program =
+                "Foo();\n" +
+                "void Foo()\n" +
+                "{\n" +
+                "    return 5;\n" +
+                "}\n";
+            InvalidSemanticsTest(program);
+        }
+        [TestMethod, TestCategory("Return errors")]
+        public void MissingReturnValueFromNonVoidFunction()
+        {
+            string program =
+                "int a = Foo();\n" +
+                "int Foo()\n" +
+                "{\n" +
+                "    return;\n" +
+                "}\n";
+            InvalidSemanticsTest(program);
+        }
+        [TestMethod, TestCategory("Return errors")]
+        public void ReturnTypeMismatch()
+        {
+            string program =
+                "int a = Foo();\n" +
+                "int Foo()\n" +
+                "{\n" +
+                "    return \"hello\";\n" +
+                "}\n";
+            InvalidSemanticsTest(program);
+        }
+        [TestMethod, TestCategory("Return errors")]
+        public void ValidReturnFromNonVoidFunction()
+        {
+            string program =
+                "int a = GetVal();\n" +
+                "print(a);\n" +
+                "int GetVal()\n" +
+                "{\n" +
+                "    return 42;\n" +
+                "}\n";
+            ValidSemanticsTest(program);
+        }
+        #endregion
+
+        #region Constructor errors
+        [TestMethod, TestCategory("Constructor errors")]
+        public void ConstructorCallWithWrongParams()
+        {
+            string program =
+                "Cat c = new Cat(1);\n" +
+                "class Cat\n" +
+                "{\n" +
+                "    string Name;\n" +
+                "}\n";
+            InvalidSemanticsTest(program);
+        }
+        [TestMethod, TestCategory("Constructor errors")]
+        public void ConstructorClassTypeMismatch()
+        {
+            string program =
+                "Dog d = new Cat();\n" +
+                "class Cat\n" +
+                "{\n" +
+                "    int x;\n" +
+                "}\n" +
+                "class Dog\n" +
+                "{\n" +
+                "    int y;\n" +
+                "}\n";
+            InvalidSemanticsTest(program);
+        }
+        [TestMethod, TestCategory("Constructor errors")]
+        public void ConstructorClassNotFound()
+        {
+            string program = "Ghost g = new Ghost();\n" +
+                             "g.Boo();\n";
+            InvalidSemanticsTest(program);
+        }
+        #endregion
+
+        #region Member access type checking
+        [TestMethod, TestCategory("Member access")]
+        public void MemberAccessTypeMatch()
+        {
+            string program =
+                "Cat c = new Cat();\n" +
+                "int a = c.Age;\n" +
+                "class Cat\n" +
+                "{\n" +
+                "    int Age;\n" +
+                "}\n";
+            ValidSemanticsTest(program);
+        }
+        [TestMethod, TestCategory("Member access")]
+        public void MemberAccessTypeMismatch()
+        {
+            string program =
+                "Cat c = new Cat();\n" +
+                "string a = c.Age;\n" +
+                "class Cat\n" +
+                "{\n" +
+                "    int Age;\n" +
+                "}\n";
+            InvalidSemanticsTest(program);
+        }
+        [TestMethod, TestCategory("Member access")]
+        public void MemberAccessAsFunctionParam()
+        {
+            string program =
+                "Cat c = new Cat();\n" +
+                "Foo(c.Age);\n" +
+                "void Foo(int x)\n" +
+                "{\n" +
+                "    print(x);\n" +
+                "}\n" +
+                "class Cat\n" +
+                "{\n" +
+                "    int Age;\n" +
+                "}\n";
+            ValidSemanticsTest(program);
+        }
+        #endregion
+
+        #region Null type checking
+        [TestMethod, TestCategory("Null type check")]
+        public void NullAssignedToClassType()
+        {
+            string program =
+                "Cat c = null;\n" +
+                "class Cat\n" +
+                "{\n" +
+                "    int Age;\n" +
+                "}\n";
+            ValidSemanticsTest(program);
+        }
+        [TestMethod, TestCategory("Null type check")]
+        public void NullAssignedToInt()
+        {
+            string program = "int a = null;\n";
+            InvalidSemanticsTest(program);
+        }
+        [TestMethod, TestCategory("Null type check")]
+        public void NullAssignedToBool()
+        {
+            string program = "bool a = null;\n";
+            InvalidSemanticsTest(program);
+        }
+        [TestMethod, TestCategory("Null type check")]
+        public void NullAssignedToString()
+        {
+            string program = "string a = null;\n";
+            InvalidSemanticsTest(program);
+        }
+        #endregion
+
+        #region Function call errors in type context
+        [TestMethod, TestCategory("Function call type errors")]
+        public void CallNonexistentFunctionInExpression()
+        {
+            string program = "int a = NonExistent(2);\n";
+            InvalidSemanticsTest(program);
+        }
+        [TestMethod, TestCategory("Function call type errors")]
+        public void FunctionReturnTypeMismatchInExpression()
+        {
+            string program =
+                "string a = GetNum();\n" +
+                "int GetNum()\n" +
+                "{\n" +
+                "    return 42;\n" +
+                "}\n";
+            InvalidSemanticsTest(program);
+        }
+        #endregion
+
+        #region Valid class with constructor parameters
+        [TestMethod, TestCategory("Successful type check"), TestCategory("Classes")]
+        public void ClassWithParameterizedConstructor()
+        {
+            string program =
+                "Cat c = new Cat(\"Whiskers\", 3);\n" +
+                "print(c.Name);\n" +
+                "class Cat\n" +
+                "{\n" +
+                "    string Name;\n" +
+                "    int Age;\n" +
+                "    Cat(string name, int age)\n" +
+                "    {\n" +
+                "        Name = name;\n" +
+                "        Age = age;\n" +
+                "    }\n" +
+                "}\n";
+            ValidSemanticsTest(program);
+        }
+        [TestMethod, TestCategory("Successful type check"), TestCategory("Classes")]
+        public void MethodCallOnObjectInExpression()
+        {
+            string program =
+                "Cat c = new Cat();\n" +
+                "int a = c.GetAge();\n" +
+                "print(a);\n" +
+                "class Cat\n" +
+                "{\n" +
+                "    int Age;\n" +
+                "    int GetAge()\n" +
+                "    {\n" +
+                "        return Age;\n" +
+                "    }\n" +
+                "}\n";
+            ValidSemanticsTest(program);
+        }
+        #endregion
     }
 
     [TestClass]

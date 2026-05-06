@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Coverage settings scoped to Semantic Analyzer: only instrument SemanticAnalyzer source -->
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="XPlat Code Coverage">
+        <Configuration>
+          <Format>cobertura</Format>
+          <Include>[Compiler]*</Include>
+          <ExcludeByFile>**/Lexer.cs,**/Token.cs,**/Parser.cs,**/CodeGen.cs,**/Program.cs</ExcludeByFile>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>
