@@ -1,0 +1,12 @@
+// goto jumps to a label. A label is a name followed by a colon.
+int i = 0;
+
+Loop:
+print(i);
+i++;
+if(i < 5)
+{
+    goto Loop;
+}
+
+print("Done");

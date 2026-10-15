@@ -1,0 +1,27 @@
+// FizzBuzz with no % operator: integer division does the job.
+int i = 1;
+while(i <= 15)
+{
+    int fizz = i - (i / 3) * 3;
+    int buzz = i - (i / 5) * 5;
+    int both = i - (i / 15) * 15;
+
+    if(both =? 0)
+    {
+        print("FizzBuzz");
+    }
+    else if(fizz =? 0)
+    {
+        print("Fizz");
+    }
+    else if(buzz =? 0)
+    {
+        print("Buzz");
+    }
+    else
+    {
+        print(i);
+    }
+
+    i++;
+}

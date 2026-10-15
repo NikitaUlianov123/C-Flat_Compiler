@@ -1,0 +1,43 @@
+// Functions can be called before they are declared.
+int big = Pow(2, 10);
+print(big);
+
+int fib = Fib(10);
+print(fib);
+
+// Overloads are picked by their parameter types.
+Greet();
+Greet("Ada");
+
+int Pow(int value, int exponent)
+{
+    int result = 1;
+    for(int i = 0; i < exponent; i++)
+    {
+        result = result * value;
+    }
+    return result;
+}
+
+int Fib(int n)
+{
+    int a = 0;
+    int b = 1;
+    for(int i = 0; i < n; i++)
+    {
+        int next = a + b;
+        a = b;
+        b = next;
+    }
+    return a;
+}
+
+void Greet()
+{
+    print("Hello from Greet()");
+}
+
+void Greet(string name)
+{
+    print(name);
+}

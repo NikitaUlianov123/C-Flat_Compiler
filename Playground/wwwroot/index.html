@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>C♭ Playground</title>
+  <meta name="description" content="Write C-Flat code in the browser and watch the real compiler tokenize, parse, type-check, emit .NET IL and run it.">
+  <meta name="theme-color" content="#0c0e14">
+  <meta property="og:title" content="C♭ Playground">
+  <meta property="og:description" content="A C#-inspired language that compiles to .NET IL. Try the real compiler in your browser.">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+  <link rel="stylesheet" data-name="vs/editor/editor.main" href="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/editor/editor.main.css">
+  <link rel="stylesheet" href="styles.css">
+  <script>
+    // Pick the theme before the first paint so the page does not flash.
+    (function () {
+      var saved = null;
+      try { saved = localStorage.getItem('cflat.theme'); } catch (e) {}
+      var dark = saved ? saved === 'dark' : !window.matchMedia('(prefers-color-scheme: light)').matches;
+      document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+    })();
+  </script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="./" aria-label="C-Flat Playground home">
+      <span class="logo" aria-hidden="true">C<span class="logo-flat">♭</span></span>
+      <span class="brand-text">
+        <strong>C-Flat</strong>
+        <span class="brand-sub">Playground</span>
+      </span>
+    </a>
+
+    <div class="toolbar">
+      <div class="select-wrap">
+        <label class="sr-only" for="examples">Load an example program</label>
+        <select id="examples" class="select">
+          <option value="">Examples…</option>
+        </select>
+        <svg class="select-caret" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" /></svg>
+      </div>
+
+      <button id="run" class="btn btn-primary" type="button" disabled>
+        <svg class="icon icon-play" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.5v9l7-4.5z" /></svg>
+        <svg class="icon icon-stop" viewBox="0 0 16 16" aria-hidden="true"><rect x="4" y="4" width="8" height="8" rx="1.5" /></svg>
+        <span class="btn-label">Run</span>
+        <kbd class="kbd" id="run-kbd">Ctrl ↵</kbd>
+      </button>
+
+      <button id="share" class="btn" type="button" title="Copy a link to this program">
+        <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M6.5 9.5l3-3M7 4.5l1-1a2.5 2.5 0 013.5 3.5l-1 1M9 11.5l-1 1A2.5 2.5 0 014.5 9l1-1" /></svg>
+        <span class="btn-label">Share</span>
+      </button>
+    </div>
+
+    <nav class="links" aria-label="Project links">
+      <a class="link" href="https://github.com/NikitaUlianov123/C-Flat_Compiler/blob/main/DOCS.md" target="_blank" rel="noopener">
+        <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.5h6.5L13 6v7.5H3zM9.5 2.5V6H13M5.5 9h5M5.5 11h3.5" /></svg>
+        <span>Language docs</span>
+      </a>
+      <a class="link" href="https://github.com/NikitaUlianov123/C-Flat_Compiler" target="_blank" rel="noopener">
+        <svg class="icon icon-fill" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 .2a8 8 0 00-2.5 15.6c.4 0 .5-.2.5-.4v-1.5c-2.2.5-2.7-1-2.7-1-.4-.9-.9-1.2-.9-1.2-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.3 1.9.9 2.3.7.1-.5.3-.9.5-1.1-1.8-.2-3.6-.9-3.6-4 0-.9.3-1.6.8-2.1-.1-.2-.4-1 .1-2.1 0 0 .7-.2 2.2.8a7.5 7.5 0 014 0c1.5-1 2.2-.8 2.2-.8.4 1.1.2 1.9.1 2.1.5.6.8 1.3.8 2.1 0 3.1-1.9 3.8-3.6 4 .3.3.6.8.6 1.5v2.2c0 .2.1.5.6.4A8 8 0 008 .2z" /></svg>
+        <span>GitHub</span>
+      </a>
+      <button id="theme" class="icon-btn" type="button" aria-label="Switch between light and dark theme">
+        <svg class="icon icon-sun" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3" /><path d="M8 1v1.5M8 13.5V15M1 8h1.5M13.5 8H15M3 3l1 1M12 12l1 1M3 13l1-1M12 4l1-1" /></svg>
+        <svg class="icon icon-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M13 9.5A5.5 5.5 0 016.5 3a5.5 5.5 0 106.5 6.5z" /></svg>
+      </button>
+    </nav>
+  </header>
+
+  <main class="workbench" id="workbench">
+    <section class="pane editor-pane" aria-label="Code editor">
+      <div class="pane-head">
+        <div class="file-tab">
+          <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5h5.5L12 5v8.5H4z" /></svg>
+          <span id="file-name">program.cflat</span>
+        </div>
+        <span class="pane-hint">Point at a token or tree node on the right to find it in the code</span>
+      </div>
+      <div id="editor" class="editor"></div>
+    </section>
+
+    <div class="gutter" id="gutter" role="separator" aria-orientation="vertical" aria-label="Resize panels" tabindex="0"></div>
+
+    <section class="pane inspector" aria-label="Compiler stages">
+      <ol class="pipeline" id="pipeline">
+        <li><button class="stage" type="button" data-stage="Lexer" data-tab="tokens"><span class="stage-head"><span class="stage-icon"></span><span class="stage-name">Lexer</span></span><span class="stage-note">waiting</span><span class="stage-time"></span></button></li>
+        <li><button class="stage" type="button" data-stage="Parser" data-tab="tree"><span class="stage-head"><span class="stage-icon"></span><span class="stage-name">Parser</span></span><span class="stage-note">waiting</span><span class="stage-time"></span></button></li>
+        <li><button class="stage" type="button" data-stage="Semantic" data-tab="symbols"><span class="stage-head"><span class="stage-icon"></span><span class="stage-name">Semantic</span></span><span class="stage-note">waiting</span><span class="stage-time"></span></button></li>
+        <li><button class="stage" type="button" data-stage="CodeGen" data-tab="il"><span class="stage-head"><span class="stage-icon"></span><span class="stage-name">CodeGen</span></span><span class="stage-note">waiting</span><span class="stage-time"></span></button></li>
+        <li><button class="stage" type="button" data-stage="Run" data-tab="output"><span class="stage-head"><span class="stage-icon"></span><span class="stage-name">Run</span></span><span class="stage-note">waiting</span><span class="stage-time"></span></button></li>
+      </ol>
+
+      <div class="tabs" role="tablist" aria-label="Compiler output">
+        <button class="tab" role="tab" type="button" id="tab-output" data-tab="output" aria-controls="panel-output">Output</button>
+        <button class="tab" role="tab" type="button" id="tab-problems" data-tab="problems" aria-controls="panel-problems">Problems <span class="badge" id="problem-count" hidden>0</span></button>
+        <button class="tab" role="tab" type="button" id="tab-tokens" data-tab="tokens" aria-controls="panel-tokens">Tokens</button>
+        <button class="tab" role="tab" type="button" id="tab-tree" data-tab="tree" aria-controls="panel-tree">Syntax tree</button>
+        <button class="tab" role="tab" type="button" id="tab-symbols" data-tab="symbols" aria-controls="panel-symbols">Symbols</button>
+        <button class="tab" role="tab" type="button" id="tab-il" data-tab="il" aria-controls="panel-il">IL</button>
+      </div>
+
+      <div class="panels">
+        <div class="panel" role="tabpanel" id="panel-output" aria-labelledby="tab-output">
+          <div class="panel-bar">
+            <span class="panel-title" id="output-title">Console</span>
+            <span class="pill pill-muted" id="output-stale" hidden>code changed since this run</span>
+            <span class="spacer"></span>
+            <button class="mini-btn" id="clear-output" type="button">Clear</button>
+          </div>
+          <div class="scroll">
+            <div class="empty" id="output-empty">
+              <div class="empty-icon" aria-hidden="true">▶</div>
+              <p>Press <strong>Run</strong> or <kbd class="kbd">Ctrl ↵</kbd> to compile your program to a .NET assembly and run it here.</p>
+            </div>
+            <pre class="console" id="console" hidden></pre>
+            <div class="run-status" id="run-status" hidden></div>
+          </div>
+        </div>
+
+        <div class="panel" role="tabpanel" id="panel-problems" aria-labelledby="tab-problems" hidden>
+          <div class="scroll">
+            <ul class="problems" id="problems"></ul>
+            <div class="empty" id="problems-empty">
+              <div class="empty-icon ok" aria-hidden="true">✓</div>
+              <p>No problems. The compiler accepted this program.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel" role="tabpanel" id="panel-tokens" aria-labelledby="tab-tokens" hidden>
+          <div class="panel-bar">
+            <span class="panel-title">Token stream</span>
+            <span class="legend" id="token-legend"></span>
+          </div>
+          <div class="scroll"><div class="tokens" id="tokens"></div></div>
+        </div>
+
+        <div class="panel" role="tabpanel" id="panel-tree" aria-labelledby="tab-tree" hidden>
+          <div class="panel-bar">
+            <span class="panel-title">Abstract syntax tree</span>
+            <span class="spacer"></span>
+            <button class="mini-btn" id="expand-all" type="button">Expand all</button>
+            <button class="mini-btn" id="collapse-all" type="button">Collapse all</button>
+          </div>
+          <div class="scroll"><ul class="tree" id="tree"></ul></div>
+        </div>
+
+        <div class="panel" role="tabpanel" id="panel-symbols" aria-labelledby="tab-symbols" hidden>
+          <div class="panel-bar">
+            <span class="panel-title">Classes and methods found by the semantic analyzer</span>
+          </div>
+          <div class="scroll"><div class="symbols" id="symbols"></div></div>
+        </div>
+
+        <div class="panel panel-il" role="tabpanel" id="panel-il" aria-labelledby="tab-il" hidden>
+          <div class="panel-bar">
+            <span class="panel-title">Disassembled CIL</span>
+            <span class="pill pill-muted" id="il-size" hidden></span>
+            <span class="spacer"></span>
+            <button class="mini-btn" id="download" type="button" disabled title="Download the compiled assembly (open it in ILSpy or dnSpy)">Download assembly</button>
+          </div>
+          <div id="il-editor" class="il-editor"></div>
+        </div>
+      </div>
+
+      <div class="boot" id="boot" role="status" aria-live="polite">
+        <div class="boot-card">
+          <div class="boot-logo" aria-hidden="true">C<span class="logo-flat">♭</span></div>
+          <p class="boot-title" id="boot-title">Starting the compiler</p>
+          <p class="boot-text" id="boot-text">The real C-Flat compiler runs in your browser on .NET WebAssembly. The first visit downloads the runtime; later visits load from the cache.</p>
+          <div class="progress" aria-hidden="true"><div class="progress-bar" id="boot-bar"></div></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="statusbar">
+    <span class="status-item" id="runtime-status"><span class="dot"></span><span id="runtime-text">Loading .NET runtime…</span></span>
+    <span class="status-item" id="compile-time"></span>
+    <span class="spacer"></span>
+    <span class="status-item" id="cursor-pos">Ln 1, Col 1</span>
+    <span class="status-item status-lang">C-Flat → .NET IL</span>
+  </footer>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

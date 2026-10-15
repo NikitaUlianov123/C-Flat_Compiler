@@ -1,0 +1,11 @@
+[
+  { "file": "hello.cflat",      "title": "Hello, World",          "description": "Variables, print and the =? operator" },
+  { "file": "fizzbuzz.cflat",   "title": "FizzBuzz",              "description": "for loops and else-if chains" },
+  { "file": "quirks.cflat",     "title": "ifn't and while-else",  "description": "Features you will not find in C#" },
+  { "file": "functions.cflat",  "title": "Functions",             "description": "Return values, recursion and overloads" },
+  { "file": "classes.cflat",    "title": "Classes",               "description": "Fields, constructors and methods" },
+  { "file": "linkedlist.cflat", "title": "Linked list",           "description": "Self-referencing classes and null" },
+  { "file": "goto.cflat",       "title": "goto and labels",       "description": "Jump around with labels" },
+  { "file": "guessing.cflat",   "title": "Guessing game",         "description": "A binary search with while loops" },
+  { "file": "errors.cflat",     "title": "Compile errors",        "description": "See how the compiler reports mistakes" }
+]

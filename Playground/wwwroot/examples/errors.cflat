@@ -1,0 +1,14 @@
+// This program has mistakes on purpose.
+// The red lines in the editor show where the compiler found them.
+
+int a = "Hello";
+string b = 42;
+bool c = 5;
+
+int Square(int x)
+{
+    return x * x;
+}
+
+string d = Square(3);
+Launch(1);

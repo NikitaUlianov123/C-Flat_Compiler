@@ -1,0 +1,55 @@
+// A singly linked list. Classes can hold references to their own type.
+class Node
+{
+    int Value;
+    Node Next;
+
+    Node(int value)
+    {
+        Value = value;
+        Next = null;
+    }
+}
+
+class LinkedList
+{
+    Node head;
+
+    LinkedList()
+    {
+        head = null;
+    }
+
+    void AddLast(int value)
+    {
+        if(head =? null)
+        {
+            head = new Node(value);
+        }
+        else
+        {
+            Node current = head;
+            while(current.Next != null)
+            {
+                current = current.Next;
+            }
+            current.Next = new Node(value);
+        }
+    }
+
+    void Print()
+    {
+        Node current = head;
+        while(current != null)
+        {
+            print(current.Value);
+            current = current.Next;
+        }
+    }
+}
+
+LinkedList list = new LinkedList();
+list.AddLast(1);
+list.AddLast(2);
+list.AddLast(3);
+list.Print();

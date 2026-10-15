@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk.WebAssembly">
+
+  <!--
+    The C-Flat playground: the real compiler from ../Compiler, compiled to WebAssembly.
+    Publish:  dotnet publish -c Release   (static site in bin/Release/net10.0/publish/wwwroot)
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <StartupObject>Playground.Interop</StartupObject>
+
+    <!-- Smaller download: the compiler does not need culture data. -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- GitHub Pages cannot serve pre-compressed files, so do not make them. -->
+    <CompressionEnabled>false</CompressionEnabled>
+    <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
+    <!-- Keep real exception messages: the playground shows them when the compiler or a program throws. -->
+    <UseSystemResourceKeys>false</UseSystemResourceKeys>
+    <!-- Trim warnings from the compiler's own reflection. The Compiler assembly is rooted below, so they are safe. -->
+    <NoWarn>$(NoWarn);IL2067;IL2075</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Compiler\Compiler\Compiler.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The compiler uses reflection (Activator.CreateInstance on parse node types). -->
+    <TrimmerRootAssembly Include="Compiler" />
+    <!-- Programs compiled in the browser call Console.WriteLine overloads that nothing else references. -->
+    <TrimmerRootAssembly Include="System.Console" />
+  </ItemGroup>
+
+</Project>

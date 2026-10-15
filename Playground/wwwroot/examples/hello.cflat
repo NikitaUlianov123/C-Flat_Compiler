@@ -1,0 +1,19 @@
+// Welcome to the C-Flat playground!
+// Press Run (or Ctrl+Enter) to compile this program to .NET IL and run it.
+// Use the tabs on the right to look inside every stage of the compiler.
+
+print("Hello, World!");
+
+string language = "C-Flat";
+int year = 2026;
+bool isFun = true;
+
+print(language);
+print(year);
+print(isFun);
+
+// Equality is spelled =? in C-Flat
+if(year =? 2026)
+{
+    print("Equality is spelled =?");
+}

@@ -1,0 +1,35 @@
+// C-Flat has a few features that you will not find in C#.
+
+// 1. ifn't runs its body when the condition is FALSE.
+int temperature = 12;
+ifn't(temperature > 20)
+{
+    print("Bring a jacket.");
+}
+
+// 2. while ... else: the else block runs only if the loop body never ran.
+int tries = 5;
+while(tries < 3)
+{
+    tries++;
+    print("Trying...");
+}
+else
+{
+    print("The loop never ran, so the else block did.");
+}
+
+// 3. if and ifn't can be mixed in one else chain.
+int score = 85;
+if(score >= 90)
+{
+    print("Grade A");
+}
+else ifn't(score < 80)
+{
+    print("Grade B");
+}
+else
+{
+    print("Grade C or lower");
+}
